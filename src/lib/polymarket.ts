@@ -1,6 +1,6 @@
 import { POLYMARKET_GAMMA_API, POLYMARKET_CLOB_API, TAG_IDS } from './constants';
 import { cache } from './cache';
-import { matchCompanyFromQuestion, isEarningsRelated } from './company-matching';
+import { matchCompanyFromQuestion, extractTicker, isEarningsRelated } from './company-matching';
 import { slugify } from './utils';
 import type { MarketDocument, PricePoint } from './types';
 
@@ -60,6 +60,7 @@ function parseClobTokenIds(raw: string): string[] {
 
 function transformGammaMarket(m: GammaMarket): MarketDocument {
   const company = matchCompanyFromQuestion(m.question);
+  const ticker = company?.ticker || extractTicker(m.question);
   const outcomes = parseOutcomes(m.outcomes, m.outcomePrices);
   const tokenIds = parseClobTokenIds(m.clobTokenIds);
 
@@ -71,7 +72,7 @@ function transformGammaMarket(m: GammaMarket): MarketDocument {
     source: 'polymarket',
     sourceId: tokenIds[0] || m.conditionId || m.id,
     sector: company?.sector || 'Technology',
-    ticker: company?.ticker || null,
+    ticker,
     companyName: company?.name || null,
     outcomes,
     volume: parseFloat(m.volume) || 0,
@@ -162,6 +163,7 @@ export async function fetchResolvedStockMarkets(): Promise<ResolvedMarketInfo[]>
       if (tokenIds.length === 0) continue;
 
       const company = matchCompanyFromQuestion(m.question);
+      const resolvedTicker = company?.ticker || extractTicker(m.question);
 
       resolved.push({
         id: m.id,
@@ -170,7 +172,7 @@ export async function fetchResolvedStockMarkets(): Promise<ResolvedMarketInfo[]>
         outcome,
         endDate: m.endDate,
         clobTokenId: tokenIds[0],
-        ticker: company?.ticker || null,
+        ticker: resolvedTicker,
         sector: company?.sector || 'Technology',
         companyName: company?.name || null,
       });

@@ -30,11 +30,27 @@ export function matchCompanyFromQuestion(question: string): CompanyMapping | nul
 }
 
 export function extractTicker(question: string): string | null {
-  const match = question.match(/\$([A-Z]{1,5})\b/);
-  if (match) return match[1];
+  // Check for $TICKER pattern
+  const dollarMatch = question.match(/\$([A-Z]{1,5})\b/);
+  if (dollarMatch) return dollarMatch[1];
 
+  // Check known company mappings
   const company = matchCompanyFromQuestion(question);
-  return company?.ticker ?? null;
+  if (company) return company.ticker;
+
+  // Extract ticker from start of question (common in Polymarket earnings markets)
+  // e.g. "AAL Quarterly Earnings..." or "GOOGL stock price..."
+  const leadingTicker = question.match(/^([A-Z]{1,5})\b/);
+  if (leadingTicker) {
+    const candidate = leadingTicker[1];
+    // Verify it looks like a ticker (not a common English word)
+    const commonWords = new Set(['THE', 'WILL', 'THIS', 'THAT', 'WHAT', 'WHEN', 'WHERE', 'HOW', 'WHO', 'ANY', 'ALL', 'CAN', 'HAS', 'ARE', 'WAS', 'FOR', 'NOT', 'BUT', 'NEW', 'NOW', 'MAY', 'JAN', 'FEB', 'MAR', 'APR', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']);
+    if (!commonWords.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
 }
 
 export function isEarningsRelated(question: string): boolean {
