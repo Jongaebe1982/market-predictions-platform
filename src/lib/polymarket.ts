@@ -178,6 +178,7 @@ export interface ResolvedMarketInfo {
   ticker: string | null;
   sector: string;
   companyName: string | null;
+  volume: number;
 }
 
 export async function fetchResolvedStockMarkets(): Promise<ResolvedMarketInfo[]> {
@@ -236,6 +237,7 @@ export async function fetchResolvedStockMarkets(): Promise<ResolvedMarketInfo[]>
         ticker: resolvedTicker,
         sector: company?.sector || 'Technology',
         companyName: company?.name || null,
+        volume: parseFloat(m.volume) || 0,
       });
     }
 

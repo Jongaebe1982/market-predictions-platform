@@ -1,6 +1,6 @@
-import { fetchResolvedStockMarkets, fetchPriceHistory } from './polymarket';
+import { fetchResolvedStockMarkets, fetchPolymarketStockMarkets, fetchPriceHistory } from './polymarket';
 import { HORIZONS, calculateBrierScore, computeAccuracyMetrics } from './accuracy-utils';
-import type { AccuracyMetrics, MarketResolution, HorizonKey, HorizonProbability, PricePoint } from './types';
+import type { AccuracyMetrics, MarketResolution, IncludedMarket, HorizonKey, HorizonProbability, PricePoint } from './types';
 import { cache } from './cache';
 
 const CONCURRENCY_LIMIT = 5;
@@ -10,6 +10,9 @@ const EMPTY_METRICS: AccuracyMetrics = {
   byHorizon: [],
   bySector: [],
   byCompany: [],
+  byVolume: [],
+  bySource: [],
+  includedMarkets: [],
   lastUpdated: new Date().toISOString(),
 };
 
@@ -74,10 +77,29 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
   if (cached) return cached;
 
   try {
-    const resolvedMarkets = await fetchResolvedStockMarkets();
+    const [resolvedMarkets, activeMarkets] = await Promise.all([
+      fetchResolvedStockMarkets(),
+      fetchPolymarketStockMarkets(),
+    ]);
+
+    // Build active market entries for the included markets grid
+    const activeIncluded: IncludedMarket[] = activeMarkets.map((m) => ({
+      question: m.question,
+      ticker: m.ticker,
+      source: m.source,
+      status: 'active' as const,
+      outcome: null,
+      volume: m.volume,
+      resolvedAt: null,
+      horizonsAvailable: [],
+    }));
 
     if (resolvedMarkets.length === 0) {
-      return EMPTY_METRICS;
+      return {
+        ...EMPTY_METRICS,
+        includedMarkets: activeIncluded,
+        lastUpdated: new Date().toISOString(),
+      };
     }
 
     const resolutions = await processWithConcurrency(
@@ -115,9 +137,15 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
             }
           }
 
-          // Use final probability (last data point)
+          // Use final probability (last data point) - stored but NOT used for overall Brier
           const finalProbability = sortedHistory[sortedHistory.length - 1].price;
-          const brierScore = calculateBrierScore(finalProbability, outcomeBoolean);
+
+          // Compute brierScore as average of available horizon Brier scores
+          // (not from final probability, which is ~1.0 at close and meaningless)
+          const horizonBriers = Object.values(horizons).map((h) => h.brierScore);
+          const brierScore = horizonBriers.length > 0
+            ? horizonBriers.reduce((s, b) => s + b, 0) / horizonBriers.length
+            : calculateBrierScore(finalProbability, outcomeBoolean);
 
           return {
             id: market.id,
@@ -132,6 +160,7 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
             finalProbability,
             outcome: market.outcome,
             brierScore,
+            volume: market.volume,
             horizons,
           };
         } catch {
@@ -146,10 +175,17 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
     );
 
     if (validResolutions.length === 0) {
-      return EMPTY_METRICS;
+      return {
+        ...EMPTY_METRICS,
+        includedMarkets: activeIncluded,
+        lastUpdated: new Date().toISOString(),
+      };
     }
 
     const metrics = computeAccuracyMetrics(validResolutions);
+
+    // Merge active markets into the included markets list
+    metrics.includedMarkets = [...metrics.includedMarkets, ...activeIncluded];
 
     // Cache for 1 hour
     cache.set(cacheKey, metrics, 60 * 60 * 1000);

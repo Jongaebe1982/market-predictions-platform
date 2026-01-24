@@ -62,6 +62,7 @@ export interface MarketResolution {
   finalProbability: number;
   outcome: 'yes' | 'no';
   brierScore: number;
+  volume: number;
   /** Probability snapshots at fixed time horizons before resolution */
   horizons: Partial<Record<HorizonKey, HorizonProbability>>;
 }
@@ -85,7 +86,38 @@ export interface AccuracyMetrics {
   byHorizon: HorizonAccuracy[];
   bySector: SectorAccuracy[];
   byCompany: CompanyAccuracy[];
+  byVolume: VolumeAccuracy[];
+  bySource: SourceAccuracy[];
+  includedMarkets: IncludedMarket[];
   lastUpdated: string;
+}
+
+export interface VolumeAccuracy {
+  bucket: string;
+  minVolume: number;
+  maxVolume: number;
+  resolvedCount: number;
+  averageBrierScore: number;
+  hitRate: number;
+}
+
+export interface SourceAccuracy {
+  source: string;
+  resolvedCount: number;
+  averageBrierScore: number;
+  hitRate: number;
+  byHorizon: HorizonAccuracy[];
+}
+
+export interface IncludedMarket {
+  question: string;
+  ticker: string | null;
+  source: string;
+  status: 'resolved' | 'active';
+  outcome: 'yes' | 'no' | null;
+  volume: number;
+  resolvedAt: string | null;
+  horizonsAvailable: HorizonKey[];
 }
 
 export interface CalibrationPoint {

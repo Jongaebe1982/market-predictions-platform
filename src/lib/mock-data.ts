@@ -238,7 +238,7 @@ export const MOCK_MARKETS: MarketDocument[] = [
   },
 ];
 
-const RAW_RESOLUTIONS: Omit<MarketResolution, 'horizons'>[] = [
+const RAW_RESOLUTIONS: Omit<MarketResolution, 'horizons' | 'volume'>[] = [
   { id: 'r1', marketId: '9', slug: 'jpmorgan-q4-eps-above-4', question: 'Will JPMorgan report Q4 EPS above $4.00?', sector: 'Finance', ticker: 'JPM', source: 'polymarket', resolvedAt: '2025-01-14T16:00:00Z', resolution: 'Yes', finalProbability: 0.83, outcome: 'yes', brierScore: 0.029 },
   { id: 'r2', marketId: '17', slug: 'goldman-sachs-q4-eps-beat', question: 'Will Goldman Sachs beat Q4 EPS estimates?', sector: 'Finance', ticker: 'GS', source: 'polymarket', resolvedAt: '2025-01-15T16:00:00Z', resolution: 'Yes', finalProbability: 0.67, outcome: 'yes', brierScore: 0.109 },
   { id: 'r3', marketId: 'h1', slug: 'apple-q4-2024-earnings-beat', question: 'Will Apple beat Q4 2024 earnings estimates?', sector: 'Technology', ticker: 'AAPL', source: 'polymarket', resolvedAt: '2024-11-01T16:00:00Z', resolution: 'Yes', finalProbability: 0.75, outcome: 'yes', brierScore: 0.063 },
@@ -296,6 +296,7 @@ const RAW_RESOLUTIONS: Omit<MarketResolution, 'horizons'>[] = [
 
 export const MOCK_RESOLUTIONS: MarketResolution[] = RAW_RESOLUTIONS.map((r) => ({
   ...r,
+  volume: 0,
   horizons: generateHorizons(r.resolvedAt, r.outcome, r.finalProbability),
 }));
 
@@ -361,6 +362,9 @@ export const MOCK_ACCURACY_METRICS: AccuracyMetrics = {
     { ticker: 'CRM', companyName: 'Salesforce', sector: 'AI & Cloud', resolvedCount: 1, averageBrierScore: 0.078, hitRate: 1.0 },
     { ticker: 'SNOW', companyName: 'Snowflake', sector: 'AI & Cloud', resolvedCount: 1, averageBrierScore: 0.130, hitRate: 1.0 },
   ],
+  byVolume: [],
+  bySource: [],
+  includedMarkets: [],
   lastUpdated: '2025-01-20T00:00:00Z',
 };
 
