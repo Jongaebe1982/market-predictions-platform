@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { MOCK_MARKETS, MOCK_ACCURACY_METRICS } from '@/lib/mock-data';
 import { SECTOR_COLORS } from '@/lib/constants';
 import { formatCurrency, formatPercentage } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -9,9 +8,6 @@ import type { MarketDocument } from '@/lib/types';
 export const dynamic = 'force-dynamic';
 
 async function getMarkets(): Promise<MarketDocument[]> {
-  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
-    return MOCK_MARKETS;
-  }
   const [{ fetchPolymarketStockMarkets }, { fetchKalshiStockMarkets }] = await Promise.all([
     import('@/lib/polymarket'),
     import('@/lib/kalshi'),
@@ -20,12 +16,15 @@ async function getMarkets(): Promise<MarketDocument[]> {
     fetchPolymarketStockMarkets(),
     fetchKalshiStockMarkets(),
   ]);
-  const markets = [...polymarkets, ...kalshiMarkets];
-  return markets.length > 0 ? markets : MOCK_MARKETS;
+  return [...polymarkets, ...kalshiMarkets];
 }
 
 export default async function HomePage() {
-  const allMarkets = await getMarkets();
+  const [allMarkets, accuracyMetrics] = await Promise.all([
+    getMarkets(),
+    import('@/lib/accuracy-compute').then((m) => m.computeRealAccuracyMetrics()),
+  ]);
+
   const activeMarkets = allMarkets.filter((m) => m.status === 'active');
   const totalVolume = allMarkets.reduce((sum, m) => sum + m.volume, 0);
   const earningsMarkets = activeMarkets.filter((m) => m.tags.includes('earnings'));
@@ -76,7 +75,9 @@ export default async function HomePage() {
           <CardContent>
             <p className="text-sm text-gray-500">Avg Brier Score</p>
             <p className="text-2xl font-bold text-gray-900">
-              {MOCK_ACCURACY_METRICS.overall.averageBrierScore.toFixed(3)}
+              {accuracyMetrics.overall.totalResolved > 0
+                ? accuracyMetrics.overall.averageBrierScore.toFixed(3)
+                : '—'}
             </p>
           </CardContent>
         </Card>

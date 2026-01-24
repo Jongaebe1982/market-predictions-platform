@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MOCK_MARKETS } from '@/lib/mock-data';
 import { PAGE_SIZE } from '@/lib/constants';
 import type { MarketDocument, PaginatedResponse } from '@/lib/types';
 
@@ -14,23 +13,14 @@ export async function GET(request: NextRequest) {
   const earnings = searchParams.get('earnings');
   const page = parseInt(searchParams.get('page') || '1', 10);
 
-  const useMock = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true';
+  const { fetchPolymarketStockMarkets } = await import('@/lib/polymarket');
+  const { fetchKalshiStockMarkets } = await import('@/lib/kalshi');
 
-  let markets: MarketDocument[];
-
-  if (useMock) {
-    markets = [...MOCK_MARKETS];
-  } else {
-    // In production, fetch from Polymarket/Kalshi or Firestore
-    const { fetchPolymarketStockMarkets } = await import('@/lib/polymarket');
-    const { fetchKalshiStockMarkets } = await import('@/lib/kalshi');
-
-    const [polymarkets, kalshiMarkets] = await Promise.all([
-      fetchPolymarketStockMarkets(),
-      fetchKalshiStockMarkets(),
-    ]);
-    markets = [...polymarkets, ...kalshiMarkets];
-  }
+  const [polymarkets, kalshiMarkets] = await Promise.all([
+    fetchPolymarketStockMarkets(),
+    fetchKalshiStockMarkets(),
+  ]);
+  let markets: MarketDocument[] = [...polymarkets, ...kalshiMarkets];
 
   // Apply filters
   if (sector) markets = markets.filter((m) => m.sector === sector);

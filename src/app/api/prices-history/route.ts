@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateMockPriceHistory } from '@/lib/mock-data';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -7,13 +6,6 @@ export async function GET(request: NextRequest) {
 
   if (!market) {
     return NextResponse.json({ error: 'market parameter required' }, { status: 400 });
-  }
-
-  const useMock = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true';
-
-  if (useMock) {
-    const history = generateMockPriceHistory(30);
-    return NextResponse.json(history);
   }
 
   try {

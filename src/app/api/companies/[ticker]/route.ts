@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MOCK_MARKETS, MOCK_ACCURACY_METRICS } from '@/lib/mock-data';
 import { getCompanyByTicker } from '@/lib/sector-mapping';
 import type { CompanyData } from '@/lib/types';
 
@@ -15,18 +14,18 @@ export async function GET(
     return NextResponse.json({ error: 'Company not found' }, { status: 404 });
   }
 
-  const useMock = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true';
+  const [{ fetchPolymarketStockMarkets }, { computeRealAccuracyMetrics }] = await Promise.all([
+    import('@/lib/polymarket'),
+    import('@/lib/accuracy-compute'),
+  ]);
 
-  let activeMarkets;
-  if (useMock) {
-    activeMarkets = MOCK_MARKETS.filter((m) => m.ticker === upperTicker && m.status === 'active');
-  } else {
-    const { fetchPolymarketStockMarkets } = await import('@/lib/polymarket');
-    const allMarkets = await fetchPolymarketStockMarkets();
-    activeMarkets = allMarkets.filter((m) => m.ticker === upperTicker && m.status === 'active');
-  }
+  const [allMarkets, accuracyMetrics] = await Promise.all([
+    fetchPolymarketStockMarkets(),
+    computeRealAccuracyMetrics(),
+  ]);
 
-  const accuracyData = MOCK_ACCURACY_METRICS.byCompany.find((c) => c.ticker === upperTicker) || null;
+  const activeMarkets = allMarkets.filter((m) => m.ticker === upperTicker && m.status === 'active');
+  const accuracyData = accuracyMetrics.byCompany.find((c) => c.ticker === upperTicker) || null;
 
   const companyData: CompanyData = {
     ticker: upperTicker,

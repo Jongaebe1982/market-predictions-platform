@@ -1,5 +1,4 @@
 import type { MetadataRoute } from 'next';
-import { MOCK_MARKETS } from '@/lib/mock-data';
 import { COMPANY_MAPPINGS } from '@/lib/sector-mapping';
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -12,13 +11,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/about`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
   ];
 
-  const marketPages: MetadataRoute.Sitemap = MOCK_MARKETS.map((market) => ({
-    url: `${baseUrl}/markets/${market.slug}`,
-    lastModified: new Date(market.updatedAt),
-    changeFrequency: 'daily' as const,
-    priority: 0.7,
-  }));
-
   const companyPages: MetadataRoute.Sitemap = COMPANY_MAPPINGS.map((company) => ({
     url: `${baseUrl}/companies/${company.ticker}`,
     lastModified: new Date(),
@@ -26,5 +18,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
-  return [...staticPages, ...marketPages, ...companyPages];
+  return [...staticPages, ...companyPages];
 }

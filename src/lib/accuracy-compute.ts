@@ -1,11 +1,17 @@
 import { fetchResolvedStockMarkets, fetchPriceHistory } from './polymarket';
 import { HORIZONS, calculateBrierScore, computeAccuracyMetrics } from './accuracy-utils';
-import { MOCK_ACCURACY_METRICS } from './mock-data';
 import type { AccuracyMetrics, MarketResolution, HorizonKey, HorizonProbability, PricePoint } from './types';
 import { cache } from './cache';
 
 const CONCURRENCY_LIMIT = 5;
-const MIN_MARKETS_FOR_REAL_DATA = 5;
+
+const EMPTY_METRICS: AccuracyMetrics = {
+  overall: { totalResolved: 0, averageBrierScore: 0, hitRate: 0, calibrationData: [] },
+  byHorizon: [],
+  bySector: [],
+  byCompany: [],
+  lastUpdated: new Date().toISOString(),
+};
 
 /**
  * Find the probability at a given target timestamp from sorted price history.
@@ -60,8 +66,7 @@ async function processWithConcurrency<T, R>(
  * Compute real accuracy metrics from resolved Polymarket markets.
  * Fetches CLOB price history for each resolved market, finds probability
  * at each time horizon, and computes Brier scores.
- * Falls back to mock data if fewer than MIN_MARKETS_FOR_REAL_DATA markets
- * have usable CLOB history.
+ * Returns empty metrics if no resolved markets have usable CLOB history.
  */
 export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
   const cacheKey = 'real-accuracy-metrics';
@@ -72,7 +77,7 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
     const resolvedMarkets = await fetchResolvedStockMarkets();
 
     if (resolvedMarkets.length === 0) {
-      return MOCK_ACCURACY_METRICS;
+      return EMPTY_METRICS;
     }
 
     const resolutions = await processWithConcurrency(
@@ -140,9 +145,8 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
       (r): r is MarketResolution => r !== null
     );
 
-    // Fall back to mock data if insufficient real data
-    if (validResolutions.length < MIN_MARKETS_FOR_REAL_DATA) {
-      return MOCK_ACCURACY_METRICS;
+    if (validResolutions.length === 0) {
+      return EMPTY_METRICS;
     }
 
     const metrics = computeAccuracyMetrics(validResolutions);
@@ -152,6 +156,6 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
     return metrics;
   } catch (error) {
     console.error('Error computing real accuracy metrics:', error);
-    return MOCK_ACCURACY_METRICS;
+    return EMPTY_METRICS;
   }
 }

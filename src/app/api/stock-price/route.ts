@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { StockPrice } from '@/lib/types';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -7,19 +6,6 @@ export async function GET(request: NextRequest) {
 
   if (!ticker) {
     return NextResponse.json({ error: 'ticker parameter required' }, { status: 400 });
-  }
-
-  const useMock = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true';
-
-  if (useMock) {
-    const mockPrice: StockPrice = {
-      ticker: ticker.toUpperCase(),
-      price: 150 + Math.random() * 100,
-      change: (Math.random() - 0.5) * 10,
-      changePercent: (Math.random() - 0.5) * 5,
-      timestamp: Date.now(),
-    };
-    return NextResponse.json(mockPrice);
   }
 
   try {
