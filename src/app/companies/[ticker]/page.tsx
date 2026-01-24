@@ -3,10 +3,12 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { getCompanyByTicker } from '@/lib/sector-mapping';
 import { MOCK_MARKETS, MOCK_ACCURACY_METRICS } from '@/lib/mock-data';
-import { COMPANY_MAPPINGS } from '@/lib/sector-mapping';
 import { formatCurrency, formatPercentage } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import type { MarketDocument } from '@/lib/types';
+
+export const dynamic = 'force-dynamic';
 
 interface PageProps {
   params: Promise<{ ticker: string }>;
@@ -23,6 +25,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
+async function getCompanyMarkets(ticker: string): Promise<MarketDocument[]> {
+  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+    return MOCK_MARKETS.filter((m) => m.ticker === ticker && m.status === 'active');
+  }
+  const { fetchPolymarketStockMarkets } = await import('@/lib/polymarket');
+  const allMarkets = await fetchPolymarketStockMarkets();
+  const companyMarkets = allMarkets.filter((m) => m.ticker === ticker && m.status === 'active');
+  return companyMarkets.length > 0
+    ? companyMarkets
+    : MOCK_MARKETS.filter((m) => m.ticker === ticker && m.status === 'active');
+}
+
 export default async function CompanyPage({ params }: PageProps) {
   const { ticker } = await params;
   const upperTicker = ticker.toUpperCase();
@@ -30,9 +44,7 @@ export default async function CompanyPage({ params }: PageProps) {
 
   if (!company) notFound();
 
-  const activeMarkets = MOCK_MARKETS.filter(
-    (m) => m.ticker === upperTicker && m.status === 'active'
-  );
+  const activeMarkets = await getCompanyMarkets(upperTicker);
   const accuracyData = MOCK_ACCURACY_METRICS.byCompany.find(
     (c) => c.ticker === upperTicker
   );
@@ -166,6 +178,3 @@ export default async function CompanyPage({ params }: PageProps) {
   );
 }
 
-export function generateStaticParams() {
-  return COMPANY_MAPPINGS.map((c) => ({ ticker: c.ticker }));
-}

@@ -1,16 +1,29 @@
 import Link from 'next/link';
 import { MOCK_MARKETS, MOCK_ACCURACY_METRICS } from '@/lib/mock-data';
-import { SECTORS, SECTOR_COLORS } from '@/lib/constants';
+import { SECTOR_COLORS } from '@/lib/constants';
 import { formatCurrency, formatPercentage } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import type { MarketDocument } from '@/lib/types';
 
-export default function HomePage() {
-  const activeMarkets = MOCK_MARKETS.filter((m) => m.status === 'active');
-  const totalVolume = MOCK_MARKETS.reduce((sum, m) => sum + m.volume, 0);
+export const dynamic = 'force-dynamic';
+
+async function getMarkets(): Promise<MarketDocument[]> {
+  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+    return MOCK_MARKETS;
+  }
+  const { fetchPolymarketStockMarkets } = await import('@/lib/polymarket');
+  const markets = await fetchPolymarketStockMarkets();
+  return markets.length > 0 ? markets : MOCK_MARKETS;
+}
+
+export default async function HomePage() {
+  const allMarkets = await getMarkets();
+  const activeMarkets = allMarkets.filter((m) => m.status === 'active');
+  const totalVolume = allMarkets.reduce((sum, m) => sum + m.volume, 0);
   const earningsMarkets = activeMarkets.filter((m) => m.tags.includes('earnings'));
   const bigMovers = [...activeMarkets]
-    .sort((a, b) => Math.abs(b.outcomes[0].probability - 0.5) - Math.abs(a.outcomes[0].probability - 0.5))
+    .sort((a, b) => b.volume - a.volume)
     .slice(0, 5);
 
   // Sector breakdown

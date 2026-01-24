@@ -6,22 +6,51 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { ProFeatureButton } from '@/components/ComingSoonBadge';
 import { MarketDetailCharts } from './MarketDetailCharts';
+import type { MarketDocument, PricePoint } from '@/lib/types';
+
+export const dynamic = 'force-dynamic';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+async function getMarketData(slug: string): Promise<{
+  market: MarketDocument;
+  priceHistory: PricePoint[];
+  relatedMarkets: MarketDocument[];
+} | null> {
+  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+    const market = MOCK_MARKETS.find((m) => m.slug === slug);
+    if (!market) return null;
+    return {
+      market,
+      priceHistory: generateMockPriceHistory(30, market.outcomes[0]?.probability || 0.5),
+      relatedMarkets: MOCK_MARKETS.filter(
+        (m) => m.id !== market.id && (m.sector === market.sector || m.ticker === market.ticker)
+      ).slice(0, 4),
+    };
+  }
+
+  const { fetchPolymarketStockMarkets, fetchPriceHistory } = await import('@/lib/polymarket');
+  const allMarkets = await fetchPolymarketStockMarkets();
+  const market = allMarkets.find((m) => m.slug === slug);
+  if (!market) return null;
+
+  const priceHistory = await fetchPriceHistory(market.sourceId);
+  const relatedMarkets = allMarkets.filter(
+    (m) => m.id !== market.id && (m.sector === market.sector || m.ticker === market.ticker)
+  ).slice(0, 4);
+
+  return { market, priceHistory, relatedMarkets };
+}
+
 export default async function MarketDetailPage({ params }: PageProps) {
   const { slug } = await params;
 
-  // In production, fetch from API/Firestore. Using mock data for now.
-  const market = MOCK_MARKETS.find((m) => m.slug === slug);
-  if (!market) notFound();
+  const data = await getMarketData(slug);
+  if (!data) notFound();
 
-  const priceHistory = generateMockPriceHistory(30, market.outcomes[0]?.probability || 0.5);
-  const relatedMarkets = MOCK_MARKETS.filter(
-    (m) => m.id !== market.id && (m.sector === market.sector || m.ticker === market.ticker)
-  ).slice(0, 4);
+  const { market, priceHistory, relatedMarkets } = data;
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
@@ -190,6 +219,3 @@ export default async function MarketDetailPage({ params }: PageProps) {
   );
 }
 
-export function generateStaticParams() {
-  return MOCK_MARKETS.map((m) => ({ slug: m.slug }));
-}
