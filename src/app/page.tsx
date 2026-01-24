@@ -1,65 +1,189 @@
-import Image from "next/image";
+import Link from 'next/link';
+import { MOCK_MARKETS, MOCK_ACCURACY_METRICS } from '@/lib/mock-data';
+import { SECTORS, SECTOR_COLORS } from '@/lib/constants';
+import { formatCurrency, formatPercentage } from '@/lib/utils';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
 
-export default function Home() {
+export default function HomePage() {
+  const activeMarkets = MOCK_MARKETS.filter((m) => m.status === 'active');
+  const totalVolume = MOCK_MARKETS.reduce((sum, m) => sum + m.volume, 0);
+  const earningsMarkets = activeMarkets.filter((m) => m.tags.includes('earnings'));
+  const bigMovers = [...activeMarkets]
+    .sort((a, b) => Math.abs(b.outcomes[0].probability - 0.5) - Math.abs(a.outcomes[0].probability - 0.5))
+    .slice(0, 5);
+
+  // Sector breakdown
+  const sectorCounts = activeMarkets.reduce<Record<string, number>>((acc, m) => {
+    acc[m.sector] = (acc[m.sector] || 0) + 1;
+    return acc;
+  }, {});
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+      {/* Hero */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Stock & Earnings Prediction Markets
+        </h1>
+        <p className="text-gray-600 max-w-2xl">
+          Track prediction markets from Polymarket and Kalshi covering stocks, earnings, and corporate events.
+          See real-time probabilities with historical accuracy scoring.
+        </p>
+      </div>
+
+      {/* Aggregate Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <Card>
+          <CardContent>
+            <p className="text-sm text-gray-500">Active Markets</p>
+            <p className="text-2xl font-bold text-gray-900">{activeMarkets.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <p className="text-sm text-gray-500">Total Volume</p>
+            <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalVolume)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <p className="text-sm text-gray-500">Earnings Markets</p>
+            <p className="text-2xl font-bold text-gray-900">{earningsMarkets.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <p className="text-sm text-gray-500">Avg Brier Score</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {MOCK_ACCURACY_METRICS.overall.averageBrierScore.toFixed(3)}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Sector Breakdown */}
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle>Markets by Sector</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {Object.entries(sectorCounts)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([sector, count]) => (
+                    <div key={sector} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: SECTOR_COLORS[sector] || '#6b7280' }}
+                        />
+                        <span className="text-sm text-gray-700">{sector}</span>
+                      </div>
+                      <span className="text-sm font-medium text-gray-900">{count}</span>
+                    </div>
+                  ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Big Movers */}
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Top Markets by Volume</CardTitle>
+                <Link href="/markets" className="text-sm text-blue-600 hover:text-blue-700">
+                  View all
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {bigMovers.map((market) => (
+                  <Link
+                    key={market.id}
+                    href={`/markets/${market.slug}`}
+                    className="block p-3 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {market.question}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {market.ticker && (
+                            <Badge variant="info">{market.ticker}</Badge>
+                          )}
+                          <Badge variant="muted">{market.sector}</Badge>
+                          <span className="text-xs text-gray-400">
+                            {formatCurrency(market.volume)} vol
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-blue-600">
+                          {formatPercentage(market.outcomes[0].probability, 0)}
+                        </p>
+                        <p className="text-xs text-gray-500">Yes</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </main>
+      </div>
+
+      {/* Earnings Window */}
+      {earningsMarkets.length > 0 && (
+        <div className="mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Upcoming Earnings Markets</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {earningsMarkets.slice(0, 6).map((market) => (
+                  <Link
+                    key={market.id}
+                    href={`/markets/${market.slug}`}
+                    className="p-3 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 transition-colors"
+                  >
+                    <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                      {market.question}
+                    </p>
+                    <div className="flex items-center justify-between mt-2">
+                      <Badge variant="default">{market.ticker || 'Earnings'}</Badge>
+                      <span className="text-sm font-bold text-blue-600">
+                        {formatPercentage(market.outcomes[0].probability, 0)}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* JSON-LD Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'WebSite',
+            name: 'Market Predictions',
+            description: 'Stock and earnings prediction market tracker with accuracy scoring',
+            url: 'https://market-predictions-platform.vercel.app',
+          }),
+        }}
+      />
     </div>
   );
 }

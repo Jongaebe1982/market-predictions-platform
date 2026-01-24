@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Markets: public read, server-only write
+    match /markets/{marketId} {
+      allow read: if true;
+      allow write: if false; // Server-only via Admin SDK
+    }
+
+    // Snapshots: public read, server-only write
+    match /snapshots/{snapshotId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Resolutions: public read, server-only write
+    match /resolutions/{resolutionId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Accuracy: public read, server-only write
+    match /accuracy/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Analytics: write-only (no read for clients)
+    match /analytics/{eventId} {
+      allow read: if false;
+      allow create: if true;
+      allow update, delete: if false;
+    }
+  }
+}
