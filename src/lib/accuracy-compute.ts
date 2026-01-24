@@ -2,6 +2,7 @@ import { fetchResolvedStockMarkets, fetchPolymarketStockMarkets, fetchPriceHisto
 import { HORIZONS, calculateBrierScore, computeAccuracyMetrics } from './accuracy-utils';
 import type { AccuracyMetrics, MarketResolution, IncludedMarket, HorizonKey, HorizonProbability, PricePoint } from './types';
 import { cache } from './cache';
+import { getAdminDb } from './firebase-admin';
 
 const CONCURRENCY_LIMIT = 5;
 
@@ -66,10 +67,46 @@ async function processWithConcurrency<T, R>(
 }
 
 /**
+ * Fetch stored resolutions from Firestore.
+ * These are resolutions previously computed and stored by the cron job.
+ */
+async function fetchFirestoreResolutions(): Promise<MarketResolution[]> {
+  try {
+    const db = getAdminDb();
+    const snapshot = await db.collection('resolutions').get();
+
+    if (snapshot.empty) return [];
+
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        marketId: data.marketId || doc.id,
+        slug: data.slug || '',
+        question: data.question || '',
+        sector: data.sector || 'Technology',
+        ticker: data.ticker || null,
+        source: data.source || 'polymarket',
+        resolvedAt: data.resolvedAt || '',
+        resolution: data.resolution || data.outcome || '',
+        finalProbability: data.finalProbability || 0,
+        outcome: data.outcome || 'no',
+        brierScore: data.brierScore || 0,
+        volume: data.volume || 0,
+        horizons: data.horizons || {},
+      } as MarketResolution;
+    });
+  } catch (error) {
+    console.error('Error fetching Firestore resolutions:', error);
+    return [];
+  }
+}
+
+/**
  * Compute real accuracy metrics from resolved Polymarket markets.
- * Fetches CLOB price history for each resolved market, finds probability
- * at each time horizon, and computes Brier scores.
- * Returns empty metrics if no resolved markets have usable CLOB history.
+ * Combines data from Firestore (stored by cron) with live API data.
+ * Deduplicates by marketId so the same resolution isn't counted twice.
+ * Returns empty metrics if no resolved markets have usable data.
  */
 export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
   const cacheKey = 'real-accuracy-metrics';
@@ -77,9 +114,10 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
   if (cached) return cached;
 
   try {
-    const [resolvedMarkets, activeMarkets] = await Promise.all([
+    const [resolvedMarkets, activeMarkets, firestoreResolutions] = await Promise.all([
       fetchResolvedStockMarkets(),
       fetchPolymarketStockMarkets(),
+      fetchFirestoreResolutions(),
     ]);
 
     // Build active market entries for the included markets grid
@@ -94,40 +132,26 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
       horizonsAvailable: [],
     }));
 
-    if (resolvedMarkets.length === 0) {
-      return {
-        ...EMPTY_METRICS,
-        includedMarkets: activeIncluded,
-        lastUpdated: new Date().toISOString(),
-      };
-    }
-
-    const resolutions = await processWithConcurrency(
+    // Process live API resolved markets
+    const liveResolutions = await processWithConcurrency(
       resolvedMarkets,
       CONCURRENCY_LIMIT,
       async (market): Promise<MarketResolution | null> => {
         try {
-          // Fetch CLOB price history for this market's Yes token
           const history = await fetchPriceHistory(market.clobTokenId);
-
           if (history.length === 0) return null;
 
-          // Sort history by timestamp
           const sortedHistory = [...history].sort((a, b) => a.timestamp - b.timestamp);
-
-          // Determine resolution date
           const resolutionDate = market.endDate
             ? new Date(market.endDate).getTime()
             : sortedHistory[sortedHistory.length - 1].timestamp;
 
-          // Find probability at each horizon
           const horizons: Partial<Record<HorizonKey, HorizonProbability>> = {};
           const outcomeBoolean = market.outcome === 'yes';
 
           for (const { key, hours } of HORIZONS) {
             const targetTime = resolutionDate - hours * 60 * 60 * 1000;
             const probability = findProbabilityAtTime(sortedHistory, targetTime);
-
             if (probability !== null) {
               horizons[key] = {
                 probability,
@@ -137,11 +161,7 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
             }
           }
 
-          // Use final probability (last data point) - stored but NOT used for Brier
           const finalProbability = sortedHistory[sortedHistory.length - 1].price;
-
-          // Compute brierScore from the earliest available horizon (prefer 30d/1 month)
-          // This measures: "what did the market predict early on vs what actually happened?"
           const horizonPreference: HorizonKey[] = ['30d', '14d', '7d', '1d', '12h'];
           let brierScore = calculateBrierScore(finalProbability, outcomeBoolean);
           for (const key of horizonPreference) {
@@ -173,12 +193,23 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
       }
     );
 
-    // Filter out nulls (markets with no usable CLOB history)
-    const validResolutions = resolutions.filter(
+    const validLiveResolutions = liveResolutions.filter(
       (r): r is MarketResolution => r !== null
     );
 
-    if (validResolutions.length === 0) {
+    // Merge Firestore + live resolutions, deduplicating by marketId
+    // Live data takes priority over Firestore (more up-to-date)
+    const resolutionMap = new Map<string, MarketResolution>();
+    for (const r of firestoreResolutions) {
+      resolutionMap.set(r.marketId, r);
+    }
+    for (const r of validLiveResolutions) {
+      resolutionMap.set(r.marketId, r);
+    }
+
+    const allResolutions = Array.from(resolutionMap.values());
+
+    if (allResolutions.length === 0) {
       return {
         ...EMPTY_METRICS,
         includedMarkets: activeIncluded,
@@ -186,7 +217,7 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
       };
     }
 
-    const metrics = computeAccuracyMetrics(validResolutions);
+    const metrics = computeAccuracyMetrics(allResolutions);
 
     // Merge active markets into the included markets list
     metrics.includedMarkets = [...metrics.includedMarkets, ...activeIncluded];

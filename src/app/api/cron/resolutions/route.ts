@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchResolvedStockMarkets, fetchPriceHistory } from '@/lib/polymarket';
 import { calculateBrierScore, HORIZONS } from '@/lib/accuracy-utils';
-import type { HorizonKey, HorizonProbability, MarketSnapshot } from '@/lib/types';
+import type { HorizonKey, HorizonProbability } from '@/lib/types';
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -9,13 +10,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { fetchPolymarketStockMarkets } = await import('@/lib/polymarket');
     const { getAdminDb } = await import('@/lib/firebase-admin');
-
-    const markets = await fetchPolymarketStockMarkets();
     const db = getAdminDb();
 
-    const resolvedMarkets = markets.filter((m) => m.status === 'resolved' && m.resolution);
+    const resolvedMarkets = await fetchResolvedStockMarkets();
     let newResolutions = 0;
 
     for (const market of resolvedMarkets) {
@@ -27,52 +25,49 @@ export async function POST(request: NextRequest) {
 
       if (!existing.empty) continue;
 
-      const outcome = market.resolution?.toLowerCase() === 'yes' ? 'yes' : 'no';
-      const isYes = outcome === 'yes';
-      const resolvedAt = market.resolvedAt || new Date().toISOString();
-      const resolvedTime = new Date(resolvedAt).getTime();
+      // Fetch CLOB price history
+      const history = await fetchPriceHistory(market.clobTokenId);
+      if (history.length === 0) continue;
 
-      // Look up snapshots for this market to find probabilities at each horizon
-      const snapshotsQuery = await db
-        .collection('snapshots')
-        .where('marketId', '==', market.id)
-        .orderBy('timestamp', 'asc')
-        .get();
+      const sortedHistory = [...history].sort((a, b) => a.timestamp - b.timestamp);
+      const resolutionDate = market.endDate
+        ? new Date(market.endDate).getTime()
+        : sortedHistory[sortedHistory.length - 1].timestamp;
 
-      const snapshots: MarketSnapshot[] = snapshotsQuery.docs.map((d) => d.data() as MarketSnapshot);
+      const outcomeBoolean = market.outcome === 'yes';
 
-      // Find probability at each time horizon
+      // Find probability at each horizon
       const horizons: Partial<Record<HorizonKey, HorizonProbability>> = {};
-
       for (const { key, hours } of HORIZONS) {
-        const targetTime = resolvedTime - hours * 60 * 60 * 1000;
-
-        // Find the snapshot closest to (but before) the target time
-        const candidateSnapshots = snapshots.filter(
-          (s) => new Date(s.timestamp).getTime() <= targetTime
-        );
-
-        if (candidateSnapshots.length === 0) continue;
-
-        // Use the most recent snapshot before the target time
-        const closest = candidateSnapshots[candidateSnapshots.length - 1];
-        const probability = closest.outcomes[0]?.probability || 0.5;
-        const brierScore = calculateBrierScore(probability, isYes);
-
-        horizons[key] = {
-          probability,
-          brierScore,
-          timestamp: closest.timestamp,
-        };
+        const targetTime = resolutionDate - hours * 60 * 60 * 1000;
+        // Find last price point at or before target
+        let closest: { timestamp: number; price: number } | null = null;
+        for (const point of sortedHistory) {
+          if (point.timestamp <= targetTime) closest = point;
+          else break;
+        }
+        if (!closest && sortedHistory[0].timestamp - targetTime <= 24 * 60 * 60 * 1000) {
+          closest = sortedHistory[0];
+        }
+        if (closest) {
+          horizons[key] = {
+            probability: closest.price,
+            brierScore: calculateBrierScore(closest.price, outcomeBoolean),
+            timestamp: new Date(targetTime).toISOString(),
+          };
+        }
       }
 
-      // Use 12h horizon probability as "final" (or 1d if 12h not available)
-      const finalProbability =
-        horizons['12h']?.probability ??
-        horizons['1d']?.probability ??
-        market.outcomes[0]?.probability ??
-        0.5;
-      const brierScore = calculateBrierScore(finalProbability, isYes);
+      // Use earliest available horizon for Brier score
+      const horizonPreference: HorizonKey[] = ['30d', '14d', '7d', '1d', '12h'];
+      const finalProbability = sortedHistory[sortedHistory.length - 1].price;
+      let brierScore = calculateBrierScore(finalProbability, outcomeBoolean);
+      for (const key of horizonPreference) {
+        if (horizons[key]) {
+          brierScore = horizons[key]!.brierScore;
+          break;
+        }
+      }
 
       await db.collection('resolutions').add({
         marketId: market.id,
@@ -80,12 +75,13 @@ export async function POST(request: NextRequest) {
         question: market.question,
         sector: market.sector,
         ticker: market.ticker,
-        source: market.source,
-        resolvedAt,
-        resolution: market.resolution,
+        source: 'polymarket',
+        resolvedAt: market.endDate || new Date(resolutionDate).toISOString(),
+        resolution: market.outcome,
         finalProbability,
-        outcome,
+        outcome: market.outcome,
         brierScore,
+        volume: market.volume,
         horizons,
       });
 
