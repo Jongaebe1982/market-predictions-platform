@@ -1,4 +1,12 @@
-import type { MarketResolution, CalibrationPoint, AccuracyMetrics, SectorAccuracy, CompanyAccuracy } from './types';
+import type { MarketResolution, CalibrationPoint, AccuracyMetrics, SectorAccuracy, CompanyAccuracy, HorizonAccuracy, HorizonKey } from './types';
+
+export const HORIZONS: { key: HorizonKey; label: string; hours: number }[] = [
+  { key: '30d', label: '1 Month', hours: 30 * 24 },
+  { key: '14d', label: '2 Weeks', hours: 14 * 24 },
+  { key: '7d', label: '1 Week', hours: 7 * 24 },
+  { key: '1d', label: '1 Day', hours: 24 },
+  { key: '12h', label: '12 Hours', hours: 12 },
+];
 
 /**
  * Calculate Brier Score for a single prediction.
@@ -58,11 +66,44 @@ export function calculateCalibration(resolutions: MarketResolution[]): Calibrati
 }
 
 /**
+ * Compute accuracy metrics at each time horizon.
+ * Only includes resolutions that have data for each horizon.
+ */
+function computeHorizonAccuracy(resolutions: MarketResolution[]): HorizonAccuracy[] {
+  return HORIZONS.map(({ key, label, hours }) => {
+    const withHorizon = resolutions.filter((r) => r.horizons?.[key]);
+
+    if (withHorizon.length === 0) {
+      return { horizon: key, label, hoursBeforeResolution: hours, sampleSize: 0, averageBrierScore: 0, hitRate: 0 };
+    }
+
+    const brierScores = withHorizon.map((r) => r.horizons[key]!.brierScore);
+    const avgBrier = brierScores.reduce((s, b) => s + b, 0) / brierScores.length;
+
+    const hits = withHorizon.filter((r) => {
+      const prob = r.horizons[key]!.probability;
+      const predictedYes = prob >= 0.5;
+      return (predictedYes && r.outcome === 'yes') || (!predictedYes && r.outcome === 'no');
+    });
+
+    return {
+      horizon: key,
+      label,
+      hoursBeforeResolution: hours,
+      sampleSize: withHorizon.length,
+      averageBrierScore: avgBrier,
+      hitRate: hits.length / withHorizon.length,
+    };
+  });
+}
+
+/**
  * Compute full accuracy metrics from resolutions.
  */
 export function computeAccuracyMetrics(resolutions: MarketResolution[]): AccuracyMetrics {
   const bySector = computeSectorAccuracy(resolutions);
   const byCompany = computeCompanyAccuracy(resolutions);
+  const byHorizon = computeHorizonAccuracy(resolutions);
 
   return {
     overall: {
@@ -71,6 +112,7 @@ export function computeAccuracyMetrics(resolutions: MarketResolution[]): Accurac
       hitRate: calculateHitRate(resolutions),
       calibrationData: calculateCalibration(resolutions),
     },
+    byHorizon,
     bySector,
     byCompany,
     lastUpdated: new Date().toISOString(),

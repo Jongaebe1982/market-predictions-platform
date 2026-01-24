@@ -1,4 +1,59 @@
-import type { MarketDocument, MarketResolution, AccuracyMetrics } from './types';
+import type { MarketDocument, MarketResolution, AccuracyMetrics, HorizonKey, HorizonProbability } from './types';
+import { calculateBrierScore } from './accuracy-utils';
+
+/**
+ * Generate realistic probability snapshots at fixed time horizons before resolution.
+ * Models the pattern where markets become more accurate closer to the event,
+ * but we stop measuring at 12h before resolution (before the outcome is known).
+ */
+function generateHorizons(
+  resolvedAt: string,
+  outcome: 'yes' | 'no',
+  finalProb: number,
+): Partial<Record<HorizonKey, HorizonProbability>> {
+  const resolvedTime = new Date(resolvedAt).getTime();
+  const isYes = outcome === 'yes';
+
+  // At each horizon, the probability should be less certain (closer to 0.5)
+  // and gradually converge toward the correct direction.
+  // We add controlled noise to make it realistic.
+  const horizonConfigs: { key: HorizonKey; hoursBack: number; uncertainty: number }[] = [
+    { key: '30d', hoursBack: 30 * 24, uncertainty: 0.25 },
+    { key: '14d', hoursBack: 14 * 24, uncertainty: 0.18 },
+    { key: '7d', hoursBack: 7 * 24, uncertainty: 0.12 },
+    { key: '1d', hoursBack: 24, uncertainty: 0.06 },
+    { key: '12h', hoursBack: 12, uncertainty: 0.03 },
+  ];
+
+  const horizons: Partial<Record<HorizonKey, HorizonProbability>> = {};
+
+  // Use a seeded-style approach based on finalProb for deterministic but varied results
+  const seed = Math.abs(finalProb * 1000 + resolvedTime % 1000) / 1000;
+
+  for (const { key, hoursBack, uncertainty } of horizonConfigs) {
+    const timestamp = new Date(resolvedTime - hoursBack * 60 * 60 * 1000).toISOString();
+
+    // Base probability: blend between 0.5 (max uncertainty) and the final correct direction
+    const correctTarget = isYes ? Math.max(finalProb, 0.65) : Math.min(1 - finalProb, 0.35);
+    const blendFactor = 1 - uncertainty * 2; // How much we've converged
+    let prob = 0.5 + (correctTarget - 0.5) * blendFactor;
+
+    // Add deterministic noise based on seed
+    const noise = ((seed * (hoursBack % 7 + 1)) % 0.1) - 0.05;
+    prob = Math.max(0.05, Math.min(0.95, prob + noise * uncertainty * 3));
+
+    // For "no" outcomes where market was initially wrong, make early predictions lean "yes"
+    if (!isYes && key === '30d') {
+      prob = Math.max(prob, 0.45 + seed * 0.2); // Market often starts wrong
+    }
+
+    const brierScore = calculateBrierScore(prob, isYes);
+
+    horizons[key] = { probability: Math.round(prob * 100) / 100, brierScore: Math.round(brierScore * 1000) / 1000, timestamp };
+  }
+
+  return horizons;
+}
 
 export const MOCK_MARKETS: MarketDocument[] = [
   {
@@ -183,7 +238,7 @@ export const MOCK_MARKETS: MarketDocument[] = [
   },
 ];
 
-export const MOCK_RESOLUTIONS: MarketResolution[] = [
+const RAW_RESOLUTIONS: Omit<MarketResolution, 'horizons'>[] = [
   { id: 'r1', marketId: '9', slug: 'jpmorgan-q4-eps-above-4', question: 'Will JPMorgan report Q4 EPS above $4.00?', sector: 'Finance', ticker: 'JPM', source: 'polymarket', resolvedAt: '2025-01-14T16:00:00Z', resolution: 'Yes', finalProbability: 0.83, outcome: 'yes', brierScore: 0.029 },
   { id: 'r2', marketId: '17', slug: 'goldman-sachs-q4-eps-beat', question: 'Will Goldman Sachs beat Q4 EPS estimates?', sector: 'Finance', ticker: 'GS', source: 'polymarket', resolvedAt: '2025-01-15T16:00:00Z', resolution: 'Yes', finalProbability: 0.67, outcome: 'yes', brierScore: 0.109 },
   { id: 'r3', marketId: 'h1', slug: 'apple-q4-2024-earnings-beat', question: 'Will Apple beat Q4 2024 earnings estimates?', sector: 'Technology', ticker: 'AAPL', source: 'polymarket', resolvedAt: '2024-11-01T16:00:00Z', resolution: 'Yes', finalProbability: 0.75, outcome: 'yes', brierScore: 0.063 },
@@ -239,6 +294,11 @@ export const MOCK_RESOLUTIONS: MarketResolution[] = [
   { id: 'r50', marketId: 'h48', slug: 'meta-reality-labs-loss-above-4b', question: 'Will Meta Reality Labs lose $4B+ in Q3?', sector: 'Social Media', ticker: 'META', source: 'polymarket', resolvedAt: '2024-10-30T16:00:00Z', resolution: 'Yes', finalProbability: 0.81, outcome: 'yes', brierScore: 0.036 },
 ];
 
+export const MOCK_RESOLUTIONS: MarketResolution[] = RAW_RESOLUTIONS.map((r) => ({
+  ...r,
+  horizons: generateHorizons(r.resolvedAt, r.outcome, r.finalProbability),
+}));
+
 export const MOCK_ACCURACY_METRICS: AccuracyMetrics = {
   overall: {
     totalResolved: 50,
@@ -256,6 +316,13 @@ export const MOCK_ACCURACY_METRICS: AccuracyMetrics = {
       { predictedProbability: 0.95, actualFrequency: 0.92, count: 3 },
     ],
   },
+  byHorizon: [
+    { horizon: '30d', label: '1 Month', hoursBeforeResolution: 720, sampleSize: 42, averageBrierScore: 0.198, hitRate: 0.64 },
+    { horizon: '14d', label: '2 Weeks', hoursBeforeResolution: 336, sampleSize: 46, averageBrierScore: 0.167, hitRate: 0.70 },
+    { horizon: '7d', label: '1 Week', hoursBeforeResolution: 168, sampleSize: 48, averageBrierScore: 0.142, hitRate: 0.75 },
+    { horizon: '1d', label: '1 Day', hoursBeforeResolution: 24, sampleSize: 50, averageBrierScore: 0.118, hitRate: 0.80 },
+    { horizon: '12h', label: '12 Hours', hoursBeforeResolution: 12, sampleSize: 50, averageBrierScore: 0.105, hitRate: 0.82 },
+  ],
   bySector: [
     { sector: 'Technology', resolvedCount: 12, averageBrierScore: 0.098, hitRate: 0.83 },
     { sector: 'Semiconductors', resolvedCount: 8, averageBrierScore: 0.131, hitRate: 0.75 },

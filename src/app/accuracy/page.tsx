@@ -83,6 +83,65 @@ export default function AccuracyPage() {
         </Card>
       </div>
 
+      {/* Accuracy by Time Horizon */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Accuracy by Time Horizon</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-600 mb-4">
+            How accurate are prediction markets at different lead times before the event?
+            Measured by snapshotting market probabilities at fixed intervals before resolution,
+            stopping at least 12 hours before earnings are released.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-2 font-medium text-gray-500">Time Before Event</th>
+                  <th className="text-right py-3 px-2 font-medium text-gray-500">Sample Size</th>
+                  <th className="text-right py-3 px-2 font-medium text-gray-500">Brier Score</th>
+                  <th className="text-right py-3 px-2 font-medium text-gray-500">Hit Rate</th>
+                  <th className="text-left py-3 px-2 font-medium text-gray-500">Accuracy</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.byHorizon.map((h) => (
+                  <tr key={h.horizon} className="border-b border-gray-100">
+                    <td className="py-3 px-2 font-medium text-gray-900">{h.label}</td>
+                    <td className="py-3 px-2 text-right text-gray-600">n={h.sampleSize}</td>
+                    <td className="py-3 px-2 text-right">
+                      <span className={h.averageBrierScore < 0.15 ? 'text-green-600 font-medium' : 'text-gray-900'}>
+                        {h.averageBrierScore.toFixed(3)}
+                      </span>
+                    </td>
+                    <td className="py-3 px-2 text-right">
+                      <span className={h.hitRate >= 0.75 ? 'text-green-600 font-medium' : 'text-gray-900'}>
+                        {formatPercentage(h.hitRate, 0)}
+                      </span>
+                    </td>
+                    <td className="py-3 px-2 w-40">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-blue-500 rounded-full"
+                            style={{ width: `${(1 - h.averageBrierScore / 0.25) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-gray-400 mt-3">
+            Bar shows relative accuracy (Brier score vs. 0.25 random baseline). Markets become significantly
+            more accurate as the event approaches, with the biggest improvement between 1 month and 1 week out.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Charts (client component for dynamic import) */}
       <AccuracyCharts metrics={metrics} />
 

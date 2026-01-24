@@ -41,6 +41,14 @@ export interface MarketSnapshot {
   source: string;
 }
 
+export type HorizonKey = '30d' | '14d' | '7d' | '1d' | '12h';
+
+export interface HorizonProbability {
+  probability: number;
+  brierScore: number;
+  timestamp: string;
+}
+
 export interface MarketResolution {
   id: string;
   marketId: string;
@@ -54,6 +62,17 @@ export interface MarketResolution {
   finalProbability: number;
   outcome: 'yes' | 'no';
   brierScore: number;
+  /** Probability snapshots at fixed time horizons before resolution */
+  horizons: Partial<Record<HorizonKey, HorizonProbability>>;
+}
+
+export interface HorizonAccuracy {
+  horizon: HorizonKey;
+  label: string;
+  hoursBeforeResolution: number;
+  sampleSize: number;
+  averageBrierScore: number;
+  hitRate: number;
 }
 
 export interface AccuracyMetrics {
@@ -63,6 +82,7 @@ export interface AccuracyMetrics {
     hitRate: number;
     calibrationData: CalibrationPoint[];
   };
+  byHorizon: HorizonAccuracy[];
   bySector: SectorAccuracy[];
   byCompany: CompanyAccuracy[];
   lastUpdated: string;
