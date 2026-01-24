@@ -181,19 +181,39 @@ export interface ResolvedMarketInfo {
   volume: number;
 }
 
+/**
+ * Fetch a paginated set of closed markets for a given tag.
+ * Polymarket gamma API supports offset-based pagination.
+ */
+async function fetchClosedMarketsByTag(tagId: string, maxPages: number = 3): Promise<GammaMarket[]> {
+  const pageSize = 100;
+  const all: GammaMarket[] = [];
+
+  for (let page = 0; page < maxPages; page++) {
+    const offset = page * pageSize;
+    const res = await fetch(
+      `${POLYMARKET_GAMMA_API}/markets?tag_id=${tagId}&closed=true&limit=${pageSize}&offset=${offset}`
+    );
+    if (!res.ok) break;
+    const data: GammaMarket[] = await res.json();
+    if (data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break; // no more pages
+  }
+
+  return all;
+}
+
 export async function fetchResolvedStockMarkets(): Promise<ResolvedMarketInfo[]> {
   const cacheKey = 'polymarket-resolved-stocks';
   const cached = cache.get<ResolvedMarketInfo[]>(cacheKey);
   if (cached) return cached;
 
   try {
-    const [stocksRes, earningsRes] = await Promise.all([
-      fetch(`${POLYMARKET_GAMMA_API}/markets?tag_id=${TAG_IDS.STOCKS}&closed=true&limit=100`),
-      fetch(`${POLYMARKET_GAMMA_API}/markets?tag_id=${TAG_IDS.EARNINGS}&closed=true&limit=100`),
+    const [stocksData, earningsData] = await Promise.all([
+      fetchClosedMarketsByTag(TAG_IDS.STOCKS),
+      fetchClosedMarketsByTag(TAG_IDS.EARNINGS),
     ]);
-
-    const stocksData: GammaMarket[] = stocksRes.ok ? await stocksRes.json() : [];
-    const earningsData: GammaMarket[] = earningsRes.ok ? await earningsRes.json() : [];
 
     // Dedupe by id
     const allMarkets = new Map<string, GammaMarket>();
@@ -202,20 +222,31 @@ export async function fetchResolvedStockMarkets(): Promise<ResolvedMarketInfo[]>
     const resolved: ResolvedMarketInfo[] = [];
 
     for (const m of allMarkets.values()) {
-      if (!m.closed) continue;
+      if (!m.resolved) continue;
 
-      // Determine outcome from outcomePrices
+      // Determine outcome from resolvedOutcome field (most reliable)
+      // Fall back to price-based detection if resolvedOutcome is missing
       let outcome: 'yes' | 'no' | null = null;
-      try {
-        const prices: string[] = JSON.parse(m.outcomePrices);
-        const outcomes: string[] = JSON.parse(m.outcomes);
-        const yesIdx = outcomes.findIndex((o) => o.toLowerCase() === 'yes');
-        if (yesIdx >= 0) {
-          const yesPrice = parseFloat(prices[yesIdx]);
-          outcome = yesPrice >= 0.95 ? 'yes' : yesPrice <= 0.05 ? 'no' : null;
+
+      if (m.resolvedOutcome) {
+        const resolved = m.resolvedOutcome.toLowerCase().trim();
+        if (resolved === 'yes') outcome = 'yes';
+        else if (resolved === 'no') outcome = 'no';
+      }
+
+      if (!outcome) {
+        // Fallback: use outcomePrices with relaxed threshold
+        try {
+          const prices: string[] = JSON.parse(m.outcomePrices);
+          const outcomes: string[] = JSON.parse(m.outcomes);
+          const yesIdx = outcomes.findIndex((o) => o.toLowerCase() === 'yes');
+          if (yesIdx >= 0) {
+            const yesPrice = parseFloat(prices[yesIdx]);
+            outcome = yesPrice >= 0.85 ? 'yes' : yesPrice <= 0.15 ? 'no' : null;
+          }
+        } catch {
+          continue;
         }
-      } catch {
-        continue;
       }
 
       if (!outcome) continue;

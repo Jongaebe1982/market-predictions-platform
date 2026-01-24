@@ -84,8 +84,10 @@ export function IncludedMarketsSection({ markets }: IncludedMarketsSectionProps)
       </CardHeader>
       <CardContent>
         <p className="text-sm text-gray-600 mb-4">
-          All markets tracked for accuracy analysis. Resolved markets have Brier scores computed
-          at each available time horizon before close. Active markets will be scored once resolved.
+          <strong>Resolved</strong> markets have closed with a known outcome — these are scored using Brier analysis
+          (prediction at 1 month/2 weeks/1 week/1 day vs actual result). <strong>Active</strong> markets are
+          still open — they cannot be scored yet because the outcome is unknown. As they resolve, they will
+          be added to the accuracy analysis.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.map((m, i) => (
