@@ -31,12 +31,19 @@ async function getMarketData(slug: string): Promise<{
     };
   }
 
-  const { fetchPolymarketStockMarkets, fetchPriceHistory } = await import('@/lib/polymarket');
-  const allMarkets = await fetchPolymarketStockMarkets();
+  const [{ fetchPolymarketStockMarkets, fetchPriceHistory }, { fetchKalshiStockMarkets }] =
+    await Promise.all([import('@/lib/polymarket'), import('@/lib/kalshi')]);
+  const [polymarkets, kalshiMarkets] = await Promise.all([
+    fetchPolymarketStockMarkets(),
+    fetchKalshiStockMarkets(),
+  ]);
+  const allMarkets = [...polymarkets, ...kalshiMarkets];
   const market = allMarkets.find((m) => m.slug === slug);
   if (!market) return null;
 
-  const priceHistory = await fetchPriceHistory(market.sourceId);
+  const priceHistory = market.source === 'polymarket'
+    ? await fetchPriceHistory(market.sourceId)
+    : [];
   const relatedMarkets = allMarkets.filter(
     (m) => m.id !== market.id && (m.sector === market.sector || m.ticker === market.ticker)
   ).slice(0, 4);
@@ -134,10 +141,7 @@ export default async function MarketDetailPage({ params }: PageProps) {
           </Card>
 
           {/* Probability chart (client component) */}
-          <MarketDetailCharts
-            priceHistory={priceHistory}
-            ticker={market.ticker}
-          />
+          <MarketDetailCharts priceHistory={priceHistory} />
 
           {/* Pro teaser buttons */}
           <Card>

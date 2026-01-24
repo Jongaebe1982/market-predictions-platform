@@ -11,14 +11,14 @@ const ProbabilityLineChart = dynamic(
 
 interface MarketDetailChartsProps {
   priceHistory: { timestamp: number; price: number }[];
-  ticker: string | null;
 }
 
-export function MarketDetailCharts({ priceHistory, ticker }: MarketDetailChartsProps) {
+export function MarketDetailCharts({ priceHistory }: MarketDetailChartsProps) {
+  if (priceHistory.length === 0) return null;
+
   const chartData = priceHistory.map((p) => ({
     timestamp: p.timestamp,
     probability: p.price,
-    stockPrice: ticker ? 150 + Math.random() * 50 : undefined,
   }));
 
   return (
@@ -29,7 +29,7 @@ export function MarketDetailCharts({ priceHistory, ticker }: MarketDetailChartsP
       <CardContent>
         <ProbabilityLineChart
           data={chartData}
-          showStockPrice={!!ticker}
+          showStockPrice={false}
           height={350}
         />
       </CardContent>

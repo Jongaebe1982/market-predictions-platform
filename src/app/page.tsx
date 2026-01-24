@@ -12,8 +12,15 @@ async function getMarkets(): Promise<MarketDocument[]> {
   if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
     return MOCK_MARKETS;
   }
-  const { fetchPolymarketStockMarkets } = await import('@/lib/polymarket');
-  const markets = await fetchPolymarketStockMarkets();
+  const [{ fetchPolymarketStockMarkets }, { fetchKalshiStockMarkets }] = await Promise.all([
+    import('@/lib/polymarket'),
+    import('@/lib/kalshi'),
+  ]);
+  const [polymarkets, kalshiMarkets] = await Promise.all([
+    fetchPolymarketStockMarkets(),
+    fetchKalshiStockMarkets(),
+  ]);
+  const markets = [...polymarkets, ...kalshiMarkets];
   return markets.length > 0 ? markets : MOCK_MARKETS;
 }
 

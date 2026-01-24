@@ -59,7 +59,7 @@ function transformGammaMarket(m: GammaMarket): MarketDocument {
     question: m.question,
     description: m.description || '',
     source: 'polymarket',
-    sourceId: m.id,
+    sourceId: m.conditionId || m.id,
     sector: company?.sector || 'Technology',
     ticker: company?.ticker || null,
     companyName: company?.name || null,
@@ -99,7 +99,7 @@ function parseOutcomes(outcomes: string, prices: string): { name: string; probab
 export async function fetchPriceHistory(conditionId: string): Promise<PricePoint[]> {
   try {
     const res = await fetch(
-      `${POLYMARKET_CLOB_API}/prices-history?market=${conditionId}&interval=1d&fidelity=60`
+      `${POLYMARKET_CLOB_API}/prices-history?market=${conditionId}&interval=max&fidelity=100`
     );
     if (!res.ok) return [];
     const data = await res.json();
