@@ -1,99 +1,167 @@
 import { KALSHI_API } from './constants';
 import { cache } from './cache';
-import { matchCompanyFromQuestion, isEarningsRelated } from './company-matching';
+import { extractTicker, isEarningsRelated } from './company-matching';
 import { slugify } from './utils';
 import type { MarketDocument } from './types';
 
-interface KalshiEvent {
-  event_ticker: string;
-  title: string;
-  description: string;
-  markets: KalshiMarket[];
-  category: string;
-}
+// Relevant series for financial/stock markets
+const FINANCIAL_SERIES = [
+  // Index markets
+  'KXINXAB', 'INXAB', 'KXINXZ',
+  'KXNASDAQ100U', 'KXNASDAQ100POS', 'NASDAQ100Y',
+  // Fed/rates
+  'KXFED',
+  // Treasury/bonds
+  'KXTNOTE',
+  // Commodities
+  'WTI', 'KXWTIW',
+  // GDP/Economics
+  'GDP', 'GDPUSMAX',
+  // Inflation
+  'ACPI',
+  // Mortgage
+  'KXFRM',
+  // Crypto
+  'KXBTCATH', 'KXETHMAXM',
+  // Company-specific
+  'KXMICROS',
+];
 
-interface KalshiMarket {
+interface KalshiMarketResponse {
   ticker: string;
   title: string;
+  subtitle: string;
+  event_ticker: string;
+  status: string;
   yes_bid: number;
   yes_ask: number;
   no_bid: number;
   no_ask: number;
+  last_price: number;
   volume: number;
+  volume_24h: number;
   open_interest: number;
-  status: string;
+  liquidity: number;
   close_time: string;
+  open_time: string;
+  created_time: string;
   result: string;
+  market_type: string;
+  notional_value: number;
+}
+
+async function fetchSeriesMarkets(seriesTicker: string): Promise<KalshiMarketResponse[]> {
+  try {
+    const res = await fetch(
+      `${KALSHI_API}/markets?series_ticker=${seriesTicker}&status=open&limit=100`,
+      { next: { revalidate: 120 } }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.markets || [];
+  } catch {
+    return [];
+  }
+}
+
+function getSectorFromSeries(seriesTicker: string): string {
+  if (seriesTicker.includes('INX') || seriesTicker.includes('NASDAQ') || seriesTicker.includes('100')) return 'Financials';
+  if (seriesTicker.includes('FED') || seriesTicker.includes('FRM') || seriesTicker.includes('TNOTE')) return 'Finance';
+  if (seriesTicker.includes('GDP') || seriesTicker.includes('CPI') || seriesTicker.includes('ACPI')) return 'Economics';
+  if (seriesTicker.includes('WTI')) return 'Energy';
+  if (seriesTicker.includes('BTC') || seriesTicker.includes('ETH') || seriesTicker.includes('XRP')) return 'Crypto';
+  if (seriesTicker.includes('MICROS')) return 'Technology';
+  return 'Financials';
+}
+
+function getTickerFromSeries(seriesTicker: string): string | null {
+  if (seriesTicker.includes('INX') || seriesTicker === 'INXAB') return 'SPY';
+  if (seriesTicker.includes('NASDAQ') || seriesTicker.includes('100')) return 'QQQ';
+  if (seriesTicker.includes('WTI')) return 'USO';
+  if (seriesTicker.includes('BTC')) return 'BTC-USD';
+  if (seriesTicker.includes('ETH')) return 'ETH-USD';
+  if (seriesTicker.includes('MICROS')) return 'MSTR';
+  return null;
+}
+
+function transformKalshiMarket(m: KalshiMarketResponse): MarketDocument {
+  const question = m.title;
+  const seriesPrefix = m.event_ticker.split('-')[0];
+  const sector = getSectorFromSeries(seriesPrefix);
+  const seriesTicker = getTickerFromSeries(seriesPrefix);
+  const ticker = extractTicker(question) || seriesTicker;
+
+  // Use last_price if available, otherwise mid of bid/ask
+  const yesProbability = m.last_price > 0
+    ? m.last_price / 100
+    : (m.yes_bid + m.yes_ask) > 0
+      ? ((m.yes_bid + m.yes_ask) / 2) / 100
+      : 0.5;
+
+  return {
+    id: m.ticker,
+    slug: slugify(question),
+    question,
+    description: m.subtitle || '',
+    source: 'kalshi',
+    sourceId: m.ticker,
+    sector,
+    ticker,
+    companyName: null,
+    outcomes: [
+      { name: 'Yes', probability: Math.min(Math.max(yesProbability, 0), 1) },
+      { name: 'No', probability: Math.min(Math.max(1 - yesProbability, 0), 1) },
+    ],
+    volume: m.volume || 0,
+    liquidity: m.liquidity || m.open_interest || 0,
+    startDate: m.open_time || m.created_time,
+    endDate: m.close_time,
+    resolvedAt: m.result ? m.close_time : null,
+    resolution: m.result || null,
+    status: m.result ? 'resolved' : m.status === 'closed' ? 'closed' : 'active',
+    tags: [
+      ...(isEarningsRelated(question) ? ['earnings'] : []),
+      sector.toLowerCase(),
+    ],
+    createdAt: m.created_time || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 export async function fetchKalshiStockMarkets(): Promise<MarketDocument[]> {
-  const cacheKey = 'kalshi-stocks';
+  const cacheKey = 'kalshi-financial-markets';
   const cached = cache.get<MarketDocument[]>(cacheKey);
   if (cached) return cached;
 
   try {
-    const res = await fetch(
-      `${KALSHI_API}/events?series_ticker=STOCKS&status=open&limit=50`,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(process.env.KALSHI_API_KEY
-            ? { Authorization: `Bearer ${process.env.KALSHI_API_KEY}` }
-            : {}),
-        },
-      }
+    // Fetch markets from all relevant series in parallel
+    const allRawMarkets = await Promise.all(
+      FINANCIAL_SERIES.map(fetchSeriesMarkets)
     );
 
-    if (!res.ok) return [];
-    const data = await res.json();
-    const events: KalshiEvent[] = data.events || [];
-
+    // Flatten and dedupe by ticker
+    const seen = new Set<string>();
     const markets: MarketDocument[] = [];
-    for (const event of events) {
-      for (const market of event.markets || []) {
-        markets.push(transformKalshiMarket(event, market));
+
+    for (const batch of allRawMarkets) {
+      for (const raw of batch) {
+        if (seen.has(raw.ticker)) continue;
+        seen.add(raw.ticker);
+
+        // Only include markets with some activity or liquidity
+        if (raw.volume > 0 || raw.open_interest > 0 || raw.liquidity > 0) {
+          markets.push(transformKalshiMarket(raw));
+        }
       }
     }
 
-    cache.set(cacheKey, markets, 2 * 60 * 1000);
+    // Sort by volume descending
+    markets.sort((a, b) => b.volume - a.volume);
+
+    cache.set(cacheKey, markets, 2 * 60 * 1000); // 2 min cache
     return markets;
   } catch (error) {
     console.error('Kalshi fetch error:', error);
     return [];
   }
-}
-
-function transformKalshiMarket(event: KalshiEvent, market: KalshiMarket): MarketDocument {
-  const question = market.title || event.title;
-  const company = matchCompanyFromQuestion(question);
-  const yesProbability = ((market.yes_bid + market.yes_ask) / 2) / 100;
-
-  return {
-    id: market.ticker,
-    slug: slugify(question),
-    question,
-    description: event.description || '',
-    source: 'kalshi',
-    sourceId: market.ticker,
-    sector: company?.sector || 'Technology',
-    ticker: company?.ticker || null,
-    companyName: company?.name || null,
-    outcomes: [
-      { name: 'Yes', probability: yesProbability },
-      { name: 'No', probability: 1 - yesProbability },
-    ],
-    volume: market.volume || 0,
-    liquidity: market.open_interest || 0,
-    startDate: new Date().toISOString(),
-    endDate: market.close_time,
-    resolvedAt: market.result ? market.close_time : null,
-    resolution: market.result || null,
-    status: market.status === 'closed' ? (market.result ? 'resolved' : 'closed') : 'active',
-    tags: [
-      ...(isEarningsRelated(question) ? ['earnings'] : []),
-      'stocks',
-    ],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
 }

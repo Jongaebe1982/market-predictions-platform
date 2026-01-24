@@ -1,6 +1,6 @@
 export const POLYMARKET_GAMMA_API = 'https://gamma-api.polymarket.com';
 export const POLYMARKET_CLOB_API = 'https://clob.polymarket.com';
-export const KALSHI_API = 'https://trading-api.kalshi.com/trade-api/v2';
+export const KALSHI_API = 'https://api.elections.kalshi.com/trade-api/v2';
 
 export const TAG_IDS = {
   STOCKS: '604',
@@ -10,6 +10,8 @@ export const TAG_IDS = {
 export const SECTORS = [
   'Technology',
   'Finance',
+  'Financials',
+  'Economics',
   'Healthcare',
   'Energy',
   'Consumer',
@@ -22,6 +24,10 @@ export const SECTORS = [
   'Crypto',
   'Aerospace',
   'Telecom',
+  'Airlines',
+  'Fintech',
+  'Transportation',
+  'Travel',
 ] as const;
 
 export type Sector = (typeof SECTORS)[number];
@@ -29,6 +35,8 @@ export type Sector = (typeof SECTORS)[number];
 export const SECTOR_COLORS: Record<string, string> = {
   Technology: '#3b82f6',
   Finance: '#10b981',
+  Financials: '#059669',
+  Economics: '#0d9488',
   Healthcare: '#ef4444',
   Energy: '#f59e0b',
   Consumer: '#8b5cf6',
@@ -41,6 +49,10 @@ export const SECTOR_COLORS: Record<string, string> = {
   Crypto: '#eab308',
   Aerospace: '#64748b',
   Telecom: '#a855f7',
+  Airlines: '#0ea5e9',
+  Fintech: '#22c55e',
+  Transportation: '#78716c',
+  Travel: '#f43f5e',
 };
 
 export const CHART_COLORS = {
