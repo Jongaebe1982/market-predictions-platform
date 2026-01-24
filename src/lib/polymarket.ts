@@ -20,6 +20,7 @@ interface GammaMarket {
   tags: { id: string; label: string }[];
   slug: string;
   conditionId: string;
+  clobTokenIds: string;
 }
 
 export async function fetchPolymarketStockMarkets(): Promise<MarketDocument[]> {
@@ -49,9 +50,18 @@ export async function fetchPolymarketStockMarkets(): Promise<MarketDocument[]> {
   }
 }
 
+function parseClobTokenIds(raw: string): string[] {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
 function transformGammaMarket(m: GammaMarket): MarketDocument {
   const company = matchCompanyFromQuestion(m.question);
   const outcomes = parseOutcomes(m.outcomes, m.outcomePrices);
+  const tokenIds = parseClobTokenIds(m.clobTokenIds);
 
   return {
     id: m.id,
@@ -59,7 +69,7 @@ function transformGammaMarket(m: GammaMarket): MarketDocument {
     question: m.question,
     description: m.description || '',
     source: 'polymarket',
-    sourceId: m.conditionId || m.id,
+    sourceId: tokenIds[0] || m.conditionId || m.id,
     sector: company?.sector || 'Technology',
     ticker: company?.ticker || null,
     companyName: company?.name || null,
