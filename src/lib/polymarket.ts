@@ -1,6 +1,7 @@
 import { POLYMARKET_GAMMA_API, POLYMARKET_CLOB_API, TAG_IDS } from './constants';
 import { cache } from './cache';
 import { matchCompanyFromQuestion, extractTicker, isEarningsRelated } from './company-matching';
+import { resolveTickerFromName } from './yahoo-finance';
 import { slugify } from './utils';
 import type { MarketDocument, PricePoint } from './types';
 
@@ -42,11 +43,71 @@ export async function fetchPolymarketStockMarkets(): Promise<MarketDocument[]> {
     [...stocksData, ...earningsData].forEach((m) => allMarkets.set(m.id, m));
 
     const markets = Array.from(allMarkets.values()).map(transformGammaMarket);
+
+    // Resolve tickers for markets that don't have one using Yahoo Finance search
+    await resolveUnknownTickers(markets);
+
     cache.set(cacheKey, markets, 2 * 60 * 1000);
     return markets;
   } catch (error) {
     console.error('Polymarket fetch error:', error);
     return [];
+  }
+}
+
+/**
+ * Extract a potential company name from a market question.
+ * e.g. "MicroStrategy sells any Bitcoin..." → "MicroStrategy"
+ *      "Will Tesla reach $300?" → "Tesla"
+ *      "AAL Quarterly Earnings..." → null (already handled by extractTicker)
+ */
+function extractCompanyNameCandidate(question: string): string | null {
+  // Skip if starts with all-caps ticker (handled by extractTicker)
+  if (/^[A-Z]{1,5}\b/.test(question)) return null;
+
+  // Common patterns: "CompanyName verb..." or "Will CompanyName..."
+  const patterns = [
+    /^((?:[A-Z][a-zA-Z&.']+(?:\s+[A-Z][a-zA-Z&.']+)*))\s+(?:sells?|buys?|reach|stock|quarterly|reports?|beats?|will|shares?|price|revenue|earnings|announces?)/i,
+    /^Will\s+((?:[A-Z][a-zA-Z&.']+(?:\s+[A-Z][a-zA-Z&.']+)*))\s/i,
+    /^((?:[A-Z][a-zA-Z&.']+(?:\s+[A-Z][a-zA-Z&.']+){0,2}))\s/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = question.match(pattern);
+    if (match && match[1]) {
+      const candidate = match[1].trim();
+      // Skip common non-company words
+      const skipWords = new Set(['Will', 'The', 'Any', 'How', 'What', 'When', 'Where', 'Does', 'Can', 'Has', 'Is', 'Are']);
+      if (skipWords.has(candidate)) continue;
+      if (candidate.length >= 3) return candidate;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Resolve tickers for markets that don't have one.
+ * Uses Yahoo Finance search API to find tickers from company names.
+ */
+async function resolveUnknownTickers(markets: MarketDocument[]): Promise<void> {
+  const unknowns = markets.filter((m) => !m.ticker);
+  if (unknowns.length === 0) return;
+
+  // Process in batches of 5 to avoid rate limiting
+  for (let i = 0; i < unknowns.length; i += 5) {
+    const batch = unknowns.slice(i, i + 5);
+    await Promise.all(
+      batch.map(async (market) => {
+        const candidate = extractCompanyNameCandidate(market.question);
+        if (!candidate) return;
+
+        const ticker = await resolveTickerFromName(candidate);
+        if (ticker) {
+          market.ticker = ticker;
+        }
+      })
+    );
   }
 }
 
