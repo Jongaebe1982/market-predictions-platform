@@ -222,16 +222,16 @@ export async function fetchResolvedStockMarkets(): Promise<ResolvedMarketInfo[]>
     const resolved: ResolvedMarketInfo[] = [];
 
     for (const m of allMarkets.values()) {
-      if (!m.resolved) continue;
+      if (!m.closed) continue;
 
       // Determine outcome from resolvedOutcome field (most reliable)
       // Fall back to price-based detection if resolvedOutcome is missing
       let outcome: 'yes' | 'no' | null = null;
 
       if (m.resolvedOutcome) {
-        const resolved = m.resolvedOutcome.toLowerCase().trim();
-        if (resolved === 'yes') outcome = 'yes';
-        else if (resolved === 'no') outcome = 'no';
+        const outcomeStr = m.resolvedOutcome.toLowerCase().trim();
+        if (outcomeStr === 'yes') outcome = 'yes';
+        else if (outcomeStr === 'no') outcome = 'no';
       }
 
       if (!outcome) {
