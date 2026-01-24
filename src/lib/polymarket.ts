@@ -106,6 +106,84 @@ function parseOutcomes(outcomes: string, prices: string): { name: string; probab
   }
 }
 
+export interface ResolvedMarketInfo {
+  id: string;
+  slug: string;
+  question: string;
+  outcome: 'yes' | 'no';
+  endDate: string;
+  clobTokenId: string;
+  ticker: string | null;
+  sector: string;
+  companyName: string | null;
+}
+
+export async function fetchResolvedStockMarkets(): Promise<ResolvedMarketInfo[]> {
+  const cacheKey = 'polymarket-resolved-stocks';
+  const cached = cache.get<ResolvedMarketInfo[]>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const [stocksRes, earningsRes] = await Promise.all([
+      fetch(`${POLYMARKET_GAMMA_API}/markets?tag_id=${TAG_IDS.STOCKS}&closed=true&limit=100`),
+      fetch(`${POLYMARKET_GAMMA_API}/markets?tag_id=${TAG_IDS.EARNINGS}&closed=true&limit=100`),
+    ]);
+
+    const stocksData: GammaMarket[] = stocksRes.ok ? await stocksRes.json() : [];
+    const earningsData: GammaMarket[] = earningsRes.ok ? await earningsRes.json() : [];
+
+    // Dedupe by id
+    const allMarkets = new Map<string, GammaMarket>();
+    [...stocksData, ...earningsData].forEach((m) => allMarkets.set(m.id, m));
+
+    const resolved: ResolvedMarketInfo[] = [];
+
+    for (const m of allMarkets.values()) {
+      if (!m.closed) continue;
+
+      // Determine outcome from outcomePrices
+      let outcome: 'yes' | 'no' | null = null;
+      try {
+        const prices: string[] = JSON.parse(m.outcomePrices);
+        const outcomes: string[] = JSON.parse(m.outcomes);
+        const yesIdx = outcomes.findIndex((o) => o.toLowerCase() === 'yes');
+        if (yesIdx >= 0) {
+          const yesPrice = parseFloat(prices[yesIdx]);
+          outcome = yesPrice >= 0.95 ? 'yes' : yesPrice <= 0.05 ? 'no' : null;
+        }
+      } catch {
+        continue;
+      }
+
+      if (!outcome) continue;
+
+      // Get the Yes token ID (first element)
+      const tokenIds = parseClobTokenIds(m.clobTokenIds);
+      if (tokenIds.length === 0) continue;
+
+      const company = matchCompanyFromQuestion(m.question);
+
+      resolved.push({
+        id: m.id,
+        slug: m.slug || slugify(m.question),
+        question: m.question,
+        outcome,
+        endDate: m.endDate,
+        clobTokenId: tokenIds[0],
+        ticker: company?.ticker || null,
+        sector: company?.sector || 'Technology',
+        companyName: company?.name || null,
+      });
+    }
+
+    cache.set(cacheKey, resolved, 60 * 60 * 1000); // 1 hour cache
+    return resolved;
+  } catch (error) {
+    console.error('Polymarket resolved fetch error:', error);
+    return [];
+  }
+}
+
 export async function fetchPriceHistory(conditionId: string): Promise<PricePoint[]> {
   try {
     const res = await fetch(

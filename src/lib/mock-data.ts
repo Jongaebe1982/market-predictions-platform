@@ -377,3 +377,24 @@ export function generateMockPriceHistory(days: number = 30, startPrice: number =
 
   return points;
 }
+
+const MOCK_STOCK_BASES: Record<string, number> = {
+  AAPL: 178, TSLA: 245, NVDA: 890, META: 520, MSFT: 415,
+  AMZN: 195, NFLX: 680, GOOGL: 175, JPM: 198, AMD: 165,
+  COIN: 230, WMT: 118, XOM: 108, PFE: 28, BA: 185,
+  CRM: 290, GS: 450, INTC: 32, DIS: 95, SNOW: 165,
+};
+
+export function generateMockStockPriceHistory(
+  ticker: string,
+  timestamps: number[]
+): { timestamp: number; price: number }[] {
+  const basePrice = MOCK_STOCK_BASES[ticker] || 150;
+  let price = basePrice;
+
+  return timestamps.map((timestamp) => {
+    price = price + (Math.random() - 0.49) * (basePrice * 0.01);
+    price = Math.max(basePrice * 0.9, Math.min(basePrice * 1.1, price));
+    return { timestamp, price: Math.round(price * 100) / 100 };
+  });
+}

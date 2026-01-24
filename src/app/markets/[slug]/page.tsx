@@ -1,12 +1,13 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { MOCK_MARKETS, generateMockPriceHistory } from '@/lib/mock-data';
+import { MOCK_MARKETS, generateMockPriceHistory, generateMockStockPriceHistory } from '@/lib/mock-data';
 import { formatCurrency, formatPercentage, formatDate } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { ProFeatureButton } from '@/components/ComingSoonBadge';
 import { MarketDetailCharts } from './MarketDetailCharts';
 import type { MarketDocument, PricePoint } from '@/lib/types';
+import { fetchStockPriceHistory } from '@/lib/yahoo-finance';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,14 +18,34 @@ interface PageProps {
 async function getMarketData(slug: string): Promise<{
   market: MarketDocument;
   priceHistory: PricePoint[];
+  stockPriceHistory: { timestamp: number; price: number }[];
   relatedMarkets: MarketDocument[];
 } | null> {
   if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
     const market = MOCK_MARKETS.find((m) => m.slug === slug);
     if (!market) return null;
+
+    const priceHistory = generateMockPriceHistory(30, market.outcomes[0]?.probability || 0.5);
+
+    // Fetch stock price history if market has a ticker
+    let stockPriceHistory: { timestamp: number; price: number }[] = [];
+    if (market.ticker) {
+      const startTs = priceHistory.length > 0 ? priceHistory[0].timestamp : Date.now() - 30 * 24 * 60 * 60 * 1000;
+      const days = Math.ceil((Date.now() - startTs) / (24 * 60 * 60 * 1000));
+      stockPriceHistory = await fetchStockPriceHistory(market.ticker, Math.max(days, 5));
+      // Fallback to mock stock data if Yahoo Finance returns nothing
+      if (stockPriceHistory.length === 0) {
+        stockPriceHistory = generateMockStockPriceHistory(
+          market.ticker,
+          priceHistory.map((p) => p.timestamp)
+        );
+      }
+    }
+
     return {
       market,
-      priceHistory: generateMockPriceHistory(30, market.outcomes[0]?.probability || 0.5),
+      priceHistory,
+      stockPriceHistory,
       relatedMarkets: MOCK_MARKETS.filter(
         (m) => m.id !== market.id && (m.sector === market.sector || m.ticker === market.ticker)
       ).slice(0, 4),
@@ -44,11 +65,27 @@ async function getMarketData(slug: string): Promise<{
   const priceHistory = market.source === 'polymarket'
     ? await fetchPriceHistory(market.sourceId)
     : [];
+
+  // Fetch stock price history if market has a ticker
+  let stockPriceHistory: { timestamp: number; price: number }[] = [];
+  if (market.ticker && priceHistory.length > 0) {
+    const startTs = priceHistory[0].timestamp;
+    const days = Math.ceil((Date.now() - startTs) / (24 * 60 * 60 * 1000));
+    stockPriceHistory = await fetchStockPriceHistory(market.ticker, Math.max(days, 5));
+    // Fallback to mock stock data if Yahoo Finance returns nothing
+    if (stockPriceHistory.length === 0) {
+      stockPriceHistory = generateMockStockPriceHistory(
+        market.ticker,
+        priceHistory.map((p) => p.timestamp)
+      );
+    }
+  }
+
   const relatedMarkets = allMarkets.filter(
     (m) => m.id !== market.id && (m.sector === market.sector || m.ticker === market.ticker)
   ).slice(0, 4);
 
-  return { market, priceHistory, relatedMarkets };
+  return { market, priceHistory, stockPriceHistory, relatedMarkets };
 }
 
 export default async function MarketDetailPage({ params }: PageProps) {
@@ -57,7 +94,7 @@ export default async function MarketDetailPage({ params }: PageProps) {
   const data = await getMarketData(slug);
   if (!data) notFound();
 
-  const { market, priceHistory, relatedMarkets } = data;
+  const { market, priceHistory, stockPriceHistory, relatedMarkets } = data;
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
@@ -141,7 +178,7 @@ export default async function MarketDetailPage({ params }: PageProps) {
           </Card>
 
           {/* Probability chart (client component) */}
-          <MarketDetailCharts priceHistory={priceHistory} />
+          <MarketDetailCharts priceHistory={priceHistory} stockPriceHistory={stockPriceHistory} ticker={market.ticker} />
 
           {/* Pro teaser buttons */}
           <Card>

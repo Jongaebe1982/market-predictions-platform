@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { MOCK_ACCURACY_METRICS } from '@/lib/mock-data';
+import { computeRealAccuracyMetrics } from '@/lib/accuracy-compute';
 import { formatPercentage } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { AccuracyCharts } from './AccuracyCharts';
@@ -11,8 +11,8 @@ export const metadata: Metadata = {
 
 export const revalidate = 3600; // ISR: revalidate every hour
 
-export default function AccuracyPage() {
-  const metrics = MOCK_ACCURACY_METRICS;
+export default async function AccuracyPage() {
+  const metrics = await computeRealAccuracyMetrics();
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
