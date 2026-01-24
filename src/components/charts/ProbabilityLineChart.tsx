@@ -16,7 +16,7 @@ import { formatPercentage } from '@/lib/utils';
 interface ChartDataPoint {
   timestamp: number;
   probability: number;
-  stockPrice?: number;
+  stockPrice?: number | null;
 }
 
 interface ProbabilityLineChartProps {

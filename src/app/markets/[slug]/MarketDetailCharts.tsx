@@ -16,42 +16,49 @@ interface MarketDetailChartsProps {
 }
 
 /**
- * Merge probability data with stock price data using nearest-neighbor interpolation.
- * For each probability data point, find the closest stock price by timestamp.
+ * Merge probability data with stock price data using linear interpolation.
+ * For each probability timestamp, interpolate the stock price between
+ * the two nearest stock data points. This produces a smooth continuous
+ * stock price line that covers the full probability history range.
  */
 function mergeChartData(
   priceHistory: { timestamp: number; price: number }[],
   stockPriceHistory: { timestamp: number; price: number }[]
-): { timestamp: number; probability: number; stockPrice?: number }[] {
+): { timestamp: number; probability: number; stockPrice: number | null }[] {
   if (stockPriceHistory.length === 0) {
     return priceHistory.map((p) => ({
       timestamp: p.timestamp,
       probability: p.price,
+      stockPrice: null,
     }));
   }
 
-  // Sort stock prices by timestamp for binary search
   const sortedStock = [...stockPriceHistory].sort((a, b) => a.timestamp - b.timestamp);
+  const stockStart = sortedStock[0].timestamp;
+  const stockEnd = sortedStock[sortedStock.length - 1].timestamp;
 
   return priceHistory.map((p) => {
-    // Find nearest stock price by timestamp (nearest-neighbor)
-    let closestIdx = 0;
-    let closestDiff = Math.abs(sortedStock[0].timestamp - p.timestamp);
+    const t = p.timestamp;
+    let stockPrice: number | null = null;
 
-    for (let i = 1; i < sortedStock.length; i++) {
-      const diff = Math.abs(sortedStock[i].timestamp - p.timestamp);
-      if (diff < closestDiff) {
-        closestDiff = diff;
-        closestIdx = i;
-      } else {
-        // Since sorted, if diff starts increasing we can stop
-        break;
+    if (t <= stockStart) {
+      // Before stock data range: use first stock price
+      stockPrice = sortedStock[0].price;
+    } else if (t >= stockEnd) {
+      // After stock data range: use last stock price
+      stockPrice = sortedStock[sortedStock.length - 1].price;
+    } else {
+      // Within range: linearly interpolate between surrounding points
+      for (let i = 1; i < sortedStock.length; i++) {
+        if (sortedStock[i].timestamp >= t) {
+          const prev = sortedStock[i - 1];
+          const next = sortedStock[i];
+          const ratio = (t - prev.timestamp) / (next.timestamp - prev.timestamp);
+          stockPrice = prev.price + ratio * (next.price - prev.price);
+          break;
+        }
       }
     }
-
-    // Only include stock price if within 24 hours of probability point
-    const maxDiff = 24 * 60 * 60 * 1000; // 24 hours in ms
-    const stockPrice = closestDiff <= maxDiff ? sortedStock[closestIdx].price : undefined;
 
     return {
       timestamp: p.timestamp,
