@@ -20,7 +20,7 @@ export function Footer() {
             <h4 className="font-medium text-gray-900 text-sm mb-3">Pages</h4>
             <ul className="space-y-2">
               <li><Link href="/markets" className="text-sm text-gray-500 hover:text-gray-700">Markets</Link></li>
-              <li><Link href="/accuracy" className="text-sm text-gray-500 hover:text-gray-700">Accuracy</Link></li>
+              <li><Link href="/analytics" className="text-sm text-gray-500 hover:text-gray-700">Analytics</Link></li>
               <li><Link href="/about" className="text-sm text-gray-500 hover:text-gray-700">About</Link></li>
             </ul>
           </div>

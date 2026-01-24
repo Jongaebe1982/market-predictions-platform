@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: '%s | Market Predictions',
   },
   description:
-    'Track stock and earnings prediction markets from Polymarket and Kalshi. See accuracy scores, calibration data, and market trends.',
+    'Track stock and earnings prediction markets from Polymarket and Kalshi. See analytics, calibration data, and market trends.',
   openGraph: {
     title: 'Market Predictions - Stock & Earnings Prediction Markets',
     description: 'Track prediction markets with accuracy scoring and calibration data.',

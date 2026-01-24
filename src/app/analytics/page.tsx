@@ -6,8 +6,8 @@ import { AccuracyCharts } from './AccuracyCharts';
 import { IncludedMarketsSection } from './IncludedMarketsSection';
 
 export const metadata: Metadata = {
-  title: 'Accuracy & Methodology',
-  description: 'How accurate are prediction markets at forecasting stock and earnings outcomes? Horizon-based Brier scores, volume analysis, and source comparison.',
+  title: 'Analytics',
+  description: 'Prediction market analytics: horizon-based Brier scores, volume analysis, and source comparison for stock and earnings outcomes.',
 };
 
 export const revalidate = 3600; // ISR: revalidate every hour
@@ -19,11 +19,11 @@ export default async function AccuracyPage() {
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Prediction Accuracy</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Prediction Market Analytics</h1>
         <p className="text-gray-600 max-w-3xl">
-          How well do prediction markets forecast stock and earnings outcomes? We measure each
-          market&apos;s prediction at 1 month out (or earliest available) against the actual outcome
-          using the Brier score.
+          We observe and store resolved prediction market data to track accuracy over time.
+          Below you&apos;ll find Brier scores, hit rates, and calibration metrics across different
+          time horizons, sources, and sectors.
         </p>
       </div>
 
@@ -37,10 +37,19 @@ export default async function AccuracyPage() {
             <div>
               <h4 className="font-semibold text-gray-900 mb-1">How we measure</h4>
               <p>
-                For each resolved market, we take the market&apos;s probability at <strong>1 month before
-                close</strong> (or the earliest available snapshot if the market existed for less than 30 days)
-                and compare it to the actual outcome. This gives a meaningful accuracy measure — not the
-                trivial ~100% probability at market close when the answer is already known.
+                For each resolved market, we take the market&apos;s probability at <strong>1 month,
+                2 weeks, 1 week, 24 hours, and 12 hours before close</strong> (or the earliest
+                available snapshot if the market existed for less than 30 days) and compare it to
+                the actual outcome. This gives a meaningful accuracy measure — not the trivial
+                ~100% probability at market close when the answer is already known.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-1">What we store</h4>
+              <p>
+                For all open markets we observe and store probabilities at each time horizon.
+                For each market we record the company or index name, sector, volume traded, and
+                actual outcome — so we can report this data back to users.
               </p>
             </div>
             <div>
