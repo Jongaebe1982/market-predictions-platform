@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchResolvedStockMarkets, fetchPriceHistory } from '@/lib/polymarket';
+import { fetchResolvedStockMarkets, fetchPriceHistoryWithFallback } from '@/lib/polymarket';
 import { calculateBrierScore, HORIZONS } from '@/lib/accuracy-utils';
 import type { HorizonKey, HorizonProbability } from '@/lib/types';
 
@@ -25,8 +25,8 @@ export async function POST(request: NextRequest) {
 
       if (!existing.empty) continue;
 
-      // Fetch CLOB price history
-      const history = await fetchPriceHistory(market.clobTokenId);
+      // Fetch CLOB price history (with fallback to stored snapshots)
+      const history = await fetchPriceHistoryWithFallback(market.clobTokenId, market.id);
       if (history.length === 0) continue;
 
       const sortedHistory = [...history].sort((a, b) => a.timestamp - b.timestamp);

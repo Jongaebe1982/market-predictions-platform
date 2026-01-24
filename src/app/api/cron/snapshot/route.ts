@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { fetchPolymarketStockMarkets } = await import('@/lib/polymarket');
+    const { fetchPolymarketStockMarkets, fetchPriceHistory } = await import('@/lib/polymarket');
     const { getAdminDb } = await import('@/lib/firebase-admin');
 
     const markets = await fetchPolymarketStockMarkets();
@@ -35,9 +35,37 @@ export async function POST(request: NextRequest) {
 
     await batch.commit();
 
+    // Store CLOB price history for each market (outside batch for size limits)
+    let priceHistoryStored = 0;
+    const PRICE_HISTORY_CONCURRENCY = 5;
+
+    for (let i = 0; i < markets.length; i += PRICE_HISTORY_CONCURRENCY) {
+      const chunk = markets.slice(i, i + PRICE_HISTORY_CONCURRENCY);
+      await Promise.all(
+        chunk.map(async (market) => {
+          if (!market.sourceId) return;
+          try {
+            const history = await fetchPriceHistory(market.sourceId);
+            if (history.length === 0) return;
+
+            await db.collection('price-history').doc(market.id).set({
+              marketId: market.id,
+              clobTokenId: market.sourceId,
+              history,
+              updatedAt: timestamp,
+            });
+            priceHistoryStored++;
+          } catch (err) {
+            console.error(`Failed to store price history for ${market.id}:`, err);
+          }
+        })
+      );
+    }
+
     return NextResponse.json({
       success: true,
       marketsProcessed: markets.length,
+      priceHistoryStored,
       timestamp,
     });
   } catch (error) {

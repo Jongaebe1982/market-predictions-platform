@@ -1,4 +1,4 @@
-import { fetchResolvedStockMarkets, fetchPolymarketStockMarkets, fetchPriceHistory } from './polymarket';
+import { fetchResolvedStockMarkets, fetchPolymarketStockMarkets, fetchPriceHistoryWithFallback } from './polymarket';
 import { HORIZONS, calculateBrierScore, computeAccuracyMetrics } from './accuracy-utils';
 import type { AccuracyMetrics, MarketResolution, IncludedMarket, HorizonKey, HorizonProbability, PricePoint } from './types';
 import { cache } from './cache';
@@ -138,7 +138,7 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
       CONCURRENCY_LIMIT,
       async (market): Promise<MarketResolution | null> => {
         try {
-          const history = await fetchPriceHistory(market.clobTokenId);
+          const history = await fetchPriceHistoryWithFallback(market.clobTokenId, market.id);
           if (history.length === 0) return null;
 
           const sortedHistory = [...history].sort((a, b) => a.timestamp - b.timestamp);

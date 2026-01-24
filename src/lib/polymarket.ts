@@ -295,3 +295,48 @@ export async function fetchPriceHistory(conditionId: string): Promise<PricePoint
     return [];
   }
 }
+
+/**
+ * Fetch price history with fallback to Firestore stored data.
+ * Tries CLOB API first, then stored price-history, then snapshots.
+ */
+export async function fetchPriceHistoryWithFallback(
+  clobTokenId: string,
+  marketId: string
+): Promise<PricePoint[]> {
+  // Try CLOB API first
+  const clobHistory = await fetchPriceHistory(clobTokenId);
+  if (clobHistory.length > 0) return clobHistory;
+
+  // Fallback: check stored price-history document
+  const { getAdminDb } = await import('./firebase-admin');
+  const db = getAdminDb();
+
+  const priceHistoryDoc = await db.collection('price-history').doc(marketId).get();
+  if (priceHistoryDoc.exists) {
+    const data = priceHistoryDoc.data();
+    if (data?.history && data.history.length > 0) {
+      return data.history as PricePoint[];
+    }
+  }
+
+  // Final fallback: query snapshots collection
+  const snapshots = await db
+    .collection('snapshots')
+    .where('marketId', '==', marketId)
+    .orderBy('timestamp', 'asc')
+    .get();
+
+  if (snapshots.empty) return [];
+
+  return snapshots.docs.map((doc) => {
+    const data = doc.data();
+    const yesOutcome = data.outcomes?.find(
+      (o: { name: string }) => o.name.toLowerCase() === 'yes'
+    );
+    return {
+      timestamp: new Date(data.timestamp).getTime(),
+      price: yesOutcome?.probability ?? 0.5,
+    };
+  });
+}
