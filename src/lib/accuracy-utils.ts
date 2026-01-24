@@ -17,14 +17,13 @@ const VOLUME_BUCKETS = [
 
 /**
  * Get a representative probability for a market resolution.
- * Uses 1-day horizon, falling back to earliest available horizon.
+ * Uses 30-day (1 month) horizon — what the market predicted early on.
+ * Falls back to next earliest available horizon.
  */
 function getRepresentativeProbability(r: MarketResolution): number | null {
-  // Prefer 1-day horizon
-  if (r.horizons?.['1d']) return r.horizons['1d'].probability;
-  // Fall back through horizons in order of preference
-  const fallbackOrder: HorizonKey[] = ['12h', '7d', '14d', '30d'];
-  for (const key of fallbackOrder) {
+  // Prefer 30-day (1 month) horizon — earliest meaningful prediction
+  const preferenceOrder: HorizonKey[] = ['30d', '14d', '7d', '1d', '12h'];
+  for (const key of preferenceOrder) {
     if (r.horizons?.[key]) return r.horizons[key]!.probability;
   }
   return null;
@@ -191,11 +190,17 @@ export function computeAccuracyMetrics(resolutions: MarketResolution[]): Accurac
   const bySource = computeSourceAccuracy(resolutions);
   const includedMarkets = buildIncludedMarkets(resolutions);
 
-  // Use 1-day horizon Brier as the overall representative score
-  const oneDayHorizon = byHorizon.find((h) => h.horizon === '1d');
-  const overallBrier = oneDayHorizon && oneDayHorizon.sampleSize > 0
-    ? oneDayHorizon.averageBrierScore
-    : calculateAverageBrier(resolutions);
+  // Use 30-day (1 month) horizon Brier as the overall representative score
+  // Falls back to earliest available horizon with data
+  const preferenceOrder: HorizonKey[] = ['30d', '14d', '7d', '1d', '12h'];
+  let overallBrier = calculateAverageBrier(resolutions);
+  for (const key of preferenceOrder) {
+    const horizon = byHorizon.find((h) => h.horizon === key);
+    if (horizon && horizon.sampleSize > 0) {
+      overallBrier = horizon.averageBrierScore;
+      break;
+    }
+  }
 
   return {
     overall: {

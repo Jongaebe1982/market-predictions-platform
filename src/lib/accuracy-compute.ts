@@ -137,15 +137,19 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
             }
           }
 
-          // Use final probability (last data point) - stored but NOT used for overall Brier
+          // Use final probability (last data point) - stored but NOT used for Brier
           const finalProbability = sortedHistory[sortedHistory.length - 1].price;
 
-          // Compute brierScore as average of available horizon Brier scores
-          // (not from final probability, which is ~1.0 at close and meaningless)
-          const horizonBriers = Object.values(horizons).map((h) => h.brierScore);
-          const brierScore = horizonBriers.length > 0
-            ? horizonBriers.reduce((s, b) => s + b, 0) / horizonBriers.length
-            : calculateBrierScore(finalProbability, outcomeBoolean);
+          // Compute brierScore from the earliest available horizon (prefer 30d/1 month)
+          // This measures: "what did the market predict early on vs what actually happened?"
+          const horizonPreference: HorizonKey[] = ['30d', '14d', '7d', '1d', '12h'];
+          let brierScore = calculateBrierScore(finalProbability, outcomeBoolean);
+          for (const key of horizonPreference) {
+            if (horizons[key]) {
+              brierScore = horizons[key]!.brierScore;
+              break;
+            }
+          }
 
           return {
             id: market.id,

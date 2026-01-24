@@ -21,9 +21,9 @@ export default async function AccuracyPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Prediction Accuracy</h1>
         <p className="text-gray-600 max-w-3xl">
-          How well do prediction markets forecast stock and earnings outcomes? We analyze all resolved
-          markets using horizon-based Brier scores — measuring probability at fixed time intervals
-          before the event closes, when predictions are genuinely uncertain.
+          How well do prediction markets forecast stock and earnings outcomes? We measure each
+          market&apos;s prediction at 1 month out (or earliest available) against the actual outcome
+          using the Brier score.
         </p>
       </div>
 
@@ -35,44 +35,37 @@ export default async function AccuracyPage() {
         <CardContent>
           <div className="space-y-4 text-sm text-gray-600">
             <div>
-              <h4 className="font-semibold text-gray-900 mb-1">Which markets are included?</h4>
+              <h4 className="font-semibold text-gray-900 mb-1">How we measure</h4>
               <p>
-                All resolved stock and earnings markets with a clear Yes/No outcome and available
-                price history. This includes earnings beats, stock price targets, revenue milestones,
-                and other financial outcomes. See the full list in the &quot;Included Markets&quot; grid below.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-1">Why not use final probability?</h4>
-              <p>
-                At market close, the probability is typically ~100% (the outcome is already known), which
-                gives a misleadingly perfect Brier score of ~0. Instead, we measure accuracy at fixed time
-                horizons before the event, when the prediction is genuinely uncertain.
+                For each resolved market, we take the market&apos;s probability at <strong>1 month before
+                close</strong> (or the earliest available snapshot if the market existed for less than 30 days)
+                and compare it to the actual outcome. This gives a meaningful accuracy measure — not the
+                trivial ~100% probability at market close when the answer is already known.
               </p>
             </div>
             <div>
               <h4 className="font-semibold text-gray-900 mb-1">Worked example</h4>
               <div className="bg-gray-50 rounded-lg p-3 font-mono text-xs">
                 <p className="mb-1"><span className="text-gray-500">Market:</span> &quot;Will AAPL beat Q4 earnings?&quot;</p>
-                <p className="mb-1"><span className="text-gray-500">1 week before:</span> probability = 72%</p>
-                <p className="mb-1"><span className="text-gray-500">Outcome:</span> Yes (AAPL beat earnings)</p>
+                <p className="mb-1"><span className="text-gray-500">1 month before close:</span> probability = 72%</p>
+                <p className="mb-1"><span className="text-gray-500">Actual outcome:</span> Yes (AAPL beat earnings)</p>
                 <p className="mb-1"><span className="text-gray-500">Brier Score:</span> (0.72 - 1)&sup2; = 0.078</p>
-                <p className="text-gray-500 mt-2">A Brier score of 0.078 is good. 0 = perfect, 0.25 = random guessing, 1 = always wrong.</p>
+                <p className="text-gray-500 mt-2">0 = perfect, 0.25 = random guessing, 1 = always wrong.</p>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
               <div>
                 <h4 className="font-semibold text-gray-900 mb-1">Brier Score</h4>
                 <p className="text-xs">
-                  (forecast - outcome)&sup2;. Ranges from 0 (perfect) to 1 (worst). We report the average
-                  at the 1-day horizon as the headline metric.
+                  (prediction - outcome)&sup2;. Measures how far the 1-month prediction was from what
+                  actually happened. Lower is better.
                 </p>
               </div>
               <div>
                 <h4 className="font-semibold text-gray-900 mb-1">Hit Rate</h4>
                 <p className="text-xs">
-                  Percentage of markets where the most likely outcome (&gt;50% probability at 1-day horizon)
-                  matched the actual result.
+                  Percentage of markets where the 1-month prediction (&gt;50%) matched the actual outcome.
+                  Directional accuracy.
                 </p>
               </div>
               <div>
@@ -88,32 +81,41 @@ export default async function AccuracyPage() {
       </Card>
 
       {/* Overall Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
         <Card>
           <CardContent>
-            <p className="text-sm text-gray-500">Avg Brier Score (1-day)</p>
+            <p className="text-sm text-gray-500">Avg Brier Score</p>
             <p className="text-3xl font-bold text-gray-900">
               {metrics.overall.averageBrierScore.toFixed(3)}
             </p>
-            <p className="text-xs text-gray-400 mt-1">Lower is better (0 = perfect)</p>
+            <p className="text-xs text-gray-400 mt-1">At 1-month horizon (lower = better)</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent>
-            <p className="text-sm text-gray-500">Hit Rate (1-day)</p>
+            <p className="text-sm text-gray-500">Hit Rate</p>
             <p className="text-3xl font-bold text-green-600">
               {formatPercentage(metrics.overall.hitRate, 0)}
             </p>
-            <p className="text-xs text-gray-400 mt-1">Directional accuracy at 1-day horizon</p>
+            <p className="text-xs text-gray-400 mt-1">Directional accuracy</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent>
-            <p className="text-sm text-gray-500">Markets Analyzed</p>
+            <p className="text-sm text-gray-500">Markets Scored</p>
             <p className="text-3xl font-bold text-gray-900">
               {metrics.overall.totalResolved}
             </p>
-            <p className="text-xs text-gray-400 mt-1">All resolved markets with price history</p>
+            <p className="text-xs text-gray-400 mt-1">Resolved with price history</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <p className="text-sm text-gray-500">Markets Tracked</p>
+            <p className="text-3xl font-bold text-blue-600">
+              {metrics.includedMarkets.length}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">Active + resolved total</p>
           </CardContent>
         </Card>
       </div>
@@ -125,8 +127,8 @@ export default async function AccuracyPage() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-600 mb-4">
-            How accurate are prediction markets at different lead times before the event?
-            Probabilities are snapshotted at fixed intervals before the resolution date.
+            How prediction accuracy changes at different lead times. The headline Brier score above uses
+            the earliest available horizon (1 month preferred). This table shows all horizons for comparison.
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
