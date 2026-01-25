@@ -22,10 +22,7 @@ async function getMarkets(): Promise<MarketDocument[]> {
 }
 
 export default async function HomePage() {
-  const [allMarkets, accuracyMetrics] = await Promise.all([
-    getMarkets(),
-    import('@/lib/accuracy-compute').then((m) => m.computeRealAccuracyMetrics()),
-  ]);
+  const allMarkets = await getMarkets();
 
   const activeMarkets = allMarkets.filter((m) => m.status === 'active');
   const totalVolume = allMarkets.reduce((sum, m) => sum + m.volume, 0);
@@ -40,7 +37,7 @@ export default async function HomePage() {
     return acc;
   }, {});
 
-  // Build key takeaways
+  // Build key takeaways (without accuracy metrics to avoid slow Firestore calls)
   const takeaways = [
     {
       label: 'Active Markets',
@@ -52,19 +49,12 @@ export default async function HomePage() {
       value: formatCurrency(totalVolume),
       description: 'traded across all markets',
     },
+    {
+      label: 'Data Sources',
+      value: '2',
+      description: 'Polymarket & Kalshi',
+    },
   ];
-  if (accuracyMetrics.overall.totalResolved > 0) {
-    takeaways.push({
-      label: 'Avg Brier Score',
-      value: accuracyMetrics.overall.averageBrierScore.toFixed(3),
-      description: 'lower is better',
-    });
-    takeaways.push({
-      label: 'Hit Rate',
-      value: formatPercentage(accuracyMetrics.overall.hitRate, 0),
-      description: `across ${accuracyMetrics.overall.totalResolved} resolved markets`,
-    });
-  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
@@ -107,15 +97,16 @@ export default async function HomePage() {
         </Card>
         <Card>
           <CardContent>
-            <p className="text-sm text-gray-500">Avg Brier Score</p>
-            <p className="text-2xl font-bold text-gray-900">
-              {accuracyMetrics.overall.totalResolved > 0
-                ? accuracyMetrics.overall.averageBrierScore.toFixed(3)
-                : '—'}
-            </p>
-            <Link href="/methodology#brier-score" className="text-xs text-blue-600 hover:underline">
-              What is this?
+            <p className="text-sm text-gray-500">Accuracy Metrics</p>
+            <Link
+              href="/analytics"
+              className="text-2xl font-bold text-blue-600 hover:text-blue-700"
+            >
+              View →
             </Link>
+            <p className="text-xs text-gray-500 mt-1">
+              Brier scores & hit rates
+            </p>
           </CardContent>
         </Card>
       </div>
