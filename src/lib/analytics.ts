@@ -20,6 +20,7 @@ async function sendEvent(event: Omit<AnalyticsEvent, 'timestamp' | 'sessionId'>)
         ...event,
         timestamp: Date.now(),
         sessionId: getSessionId(),
+        hostname: window.location.hostname,
       }),
     });
   } catch {
