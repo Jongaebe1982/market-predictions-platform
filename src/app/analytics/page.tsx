@@ -13,7 +13,8 @@ export const metadata: Metadata = {
   description: 'Prediction market analytics: horizon-based Brier scores, volume analysis, and source comparison for stock and earnings outcomes.',
 };
 
-export const revalidate = 3600; // ISR: revalidate every hour
+// Use dynamic rendering to avoid Firestore quota issues during build
+export const dynamic = 'force-dynamic';
 
 export default async function AccuracyPage() {
   const metrics = await computeRealAccuracyMetrics();
