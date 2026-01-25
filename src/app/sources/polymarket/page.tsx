@@ -10,8 +10,8 @@ export const metadata: Metadata = {
   description: 'Accuracy metrics and active markets from Polymarket. Track prediction market performance with Brier scores, hit rates, and historical data.',
 };
 
-// Use dynamic rendering to avoid Firestore quota issues during build
-export const dynamic = 'force-dynamic';
+// Cache page for 1 hour, revalidate in background
+export const revalidate = 3600;
 
 async function getPolymarketData(): Promise<{
   markets: MarketDocument[];

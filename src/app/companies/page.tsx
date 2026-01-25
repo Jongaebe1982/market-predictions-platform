@@ -14,8 +14,8 @@ export const metadata: Metadata = {
   description: 'Browse prediction markets for Fortune 500 companies across Technology, Finance, Healthcare, Energy, and more sectors. Coverage expands automatically as companies appear in Polymarket and Kalshi markets.',
 };
 
-// Use dynamic rendering to avoid Firestore quota issues during build
-export const dynamic = 'force-dynamic';
+// Cache page for 30 minutes, revalidate in background
+export const revalidate = 1800;
 
 const BASE_URL = 'https://predictionmarketanalytics.io';
 

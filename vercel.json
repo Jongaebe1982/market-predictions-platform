@@ -10,7 +10,11 @@
     },
     {
       "path": "/api/cron/accuracy-compute",
-      "schedule": "0 3 * * 0"
+      "schedule": "30 8,20 * * *"
+    },
+    {
+      "path": "/api/cron/discover-companies",
+      "schedule": "0 6 * * *"
     }
   ]
 }
