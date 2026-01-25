@@ -10,7 +10,8 @@ export const metadata: Metadata = {
   description: 'Accuracy metrics and active markets from Kalshi. Track CFTC-regulated prediction market performance with Brier scores, hit rates, and historical data.',
 };
 
-export const revalidate = 3600; // ISR: revalidate every hour
+// Use dynamic rendering to avoid Firestore quota issues during build
+export const dynamic = 'force-dynamic';
 
 async function getKalshiData(): Promise<{
   markets: MarketDocument[];
