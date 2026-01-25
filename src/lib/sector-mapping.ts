@@ -111,3 +111,27 @@ export function getRelatedCompanies(
 
   return scored.slice(0, maxItems).map((s) => s.company);
 }
+
+/**
+ * Get all companies including dynamically discovered ones from Firestore.
+ * This is an async function that combines static mappings with discovered companies.
+ */
+export async function getAllCompaniesWithDiscovered(): Promise<CompanyMapping[]> {
+  const { getAllCompanies } = await import('./company-discovery');
+  return getAllCompanies();
+}
+
+/**
+ * Group companies by sector
+ */
+export function groupCompaniesBySector(
+  companies: CompanyMapping[]
+): Record<string, CompanyMapping[]> {
+  return companies.reduce<Record<string, CompanyMapping[]>>((acc, company) => {
+    if (!acc[company.sector]) {
+      acc[company.sector] = [];
+    }
+    acc[company.sector].push(company);
+    return acc;
+  }, {});
+}
