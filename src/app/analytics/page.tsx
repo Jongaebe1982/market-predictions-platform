@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { computeRealAccuracyMetrics } from '@/lib/accuracy-compute';
 import { formatPercentage } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { AccuracyCharts } from './AccuracyCharts';
 import { IncludedMarketsSection } from './IncludedMarketsSection';
+import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
+import { PageContents, KeyTakeaways, DataFreshness } from '@/components/seo/PageSections';
 
 export const metadata: Metadata = {
   title: 'Analytics',
@@ -15,8 +18,40 @@ export const revalidate = 3600; // ISR: revalidate every hour
 export default async function AccuracyPage() {
   const metrics = await computeRealAccuracyMetrics();
 
+  // Build key takeaways with actual numbers
+  const takeaways = [
+    {
+      label: 'Average Brier Score',
+      value: metrics.overall.averageBrierScore.toFixed(3),
+      description: 'at 1-month horizon (lower is better)',
+    },
+    {
+      label: 'Hit Rate',
+      value: formatPercentage(metrics.overall.hitRate, 0),
+      description: 'directional accuracy',
+    },
+    {
+      label: 'Markets Scored',
+      value: metrics.overall.totalResolved,
+      description: 'resolved with price history',
+    },
+    {
+      label: 'Markets Tracked',
+      value: metrics.includedMarkets.length,
+      description: 'active + resolved total',
+    },
+  ];
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumbs */}
+      <Breadcrumbs
+        items={[
+          { label: 'Home', href: '/' },
+          { label: 'Analytics' },
+        ]}
+      />
+
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Prediction Market Analytics</h1>
@@ -25,9 +60,30 @@ export default async function AccuracyPage() {
           Below you&apos;ll find Brier scores, hit rates, and calibration metrics across different
           time horizons, sources, and sectors.
         </p>
+        <DataFreshness refreshInterval="hourly" />
       </div>
 
+      {/* Page Contents */}
+      <PageContents
+        items={[
+          { label: 'Key Takeaways', anchor: 'key-takeaways' },
+          { label: 'Methodology Overview', anchor: 'methodology' },
+          { label: 'Accuracy by Time Horizon', anchor: 'time-horizons' },
+          { label: 'Accuracy by Volume', anchor: 'volume' },
+          { label: 'Accuracy by Source', anchor: 'source' },
+          { label: 'Accuracy by Sector', anchor: 'sector' },
+          { label: 'Accuracy by Company', anchor: 'company' },
+          { label: 'All Tracked Markets', anchor: 'markets' },
+        ]}
+      />
+
+      {/* Key Takeaways */}
+      <section id="key-takeaways" className="scroll-mt-20">
+        <KeyTakeaways items={takeaways} />
+      </section>
+
       {/* Methodology section */}
+      <section id="methodology" className="scroll-mt-20">
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>Methodology</CardTitle>
@@ -85,9 +141,15 @@ export default async function AccuracyPage() {
                 </p>
               </div>
             </div>
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <Link href="/methodology" className="text-sm text-blue-600 hover:text-blue-700">
+                Read full methodology →
+              </Link>
+            </div>
           </div>
         </CardContent>
       </Card>
+      </section>
 
       {/* Overall Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
@@ -130,6 +192,7 @@ export default async function AccuracyPage() {
       </div>
 
       {/* Accuracy by Time Horizon */}
+      <section id="time-horizons" className="scroll-mt-20">
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>Accuracy by Time Horizon</CardTitle>
@@ -186,11 +249,13 @@ export default async function AccuracyPage() {
           </p>
         </CardContent>
       </Card>
+      </section>
 
       {/* Charts (client component) */}
       <AccuracyCharts metrics={metrics} />
 
       {/* Accuracy by Volume */}
+      <section id="volume" className="scroll-mt-20">
       <Card className="mt-8">
         <CardHeader>
           <CardTitle>Accuracy by Volume</CardTitle>
@@ -241,8 +306,10 @@ export default async function AccuracyPage() {
           </div>
         </CardContent>
       </Card>
+      </section>
 
       {/* Accuracy by Source */}
+      <section id="source" className="scroll-mt-20">
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>Accuracy by Source</CardTitle>
@@ -298,8 +365,10 @@ export default async function AccuracyPage() {
           )}
         </CardContent>
       </Card>
+      </section>
 
       {/* Accuracy by Sector */}
+      <section id="sector" className="scroll-mt-20">
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>Accuracy by Sector</CardTitle>
@@ -339,8 +408,10 @@ export default async function AccuracyPage() {
           </div>
         </CardContent>
       </Card>
+      </section>
 
       {/* Accuracy by Company */}
+      <section id="company" className="scroll-mt-20">
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>Accuracy by Company</CardTitle>
@@ -386,9 +457,40 @@ export default async function AccuracyPage() {
           </div>
         </CardContent>
       </Card>
+      </section>
 
       {/* Transparency: Included Markets */}
-      <IncludedMarketsSection markets={metrics.includedMarkets} />
+      <section id="markets" className="scroll-mt-20">
+        <IncludedMarketsSection markets={metrics.includedMarkets} />
+      </section>
+
+      {/* Links to related resources */}
+      <div className="mt-8 flex flex-wrap gap-4">
+        <Link
+          href="/methodology"
+          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+        >
+          Full methodology guide →
+        </Link>
+        <Link
+          href="/glossary"
+          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+        >
+          Glossary of terms →
+        </Link>
+        <Link
+          href="/sources/polymarket"
+          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+        >
+          Polymarket data →
+        </Link>
+        <Link
+          href="/sources/kalshi"
+          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+        >
+          Kalshi data →
+        </Link>
+      </div>
     </div>
   );
 }

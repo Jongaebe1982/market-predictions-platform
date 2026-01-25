@@ -3,6 +3,8 @@ import { SECTOR_COLORS } from '@/lib/constants';
 import { formatCurrency, formatPercentage } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { KeyTakeaways } from '@/components/seo/PageSections';
+import { WebSiteJsonLd } from '@/components/seo/JsonLd';
 import type { MarketDocument } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -38,6 +40,32 @@ export default async function HomePage() {
     return acc;
   }, {});
 
+  // Build key takeaways
+  const takeaways = [
+    {
+      label: 'Active Markets',
+      value: activeMarkets.length,
+      description: 'open prediction markets',
+    },
+    {
+      label: 'Total Volume',
+      value: formatCurrency(totalVolume),
+      description: 'traded across all markets',
+    },
+  ];
+  if (accuracyMetrics.overall.totalResolved > 0) {
+    takeaways.push({
+      label: 'Avg Brier Score',
+      value: accuracyMetrics.overall.averageBrierScore.toFixed(3),
+      description: 'lower is better',
+    });
+    takeaways.push({
+      label: 'Hit Rate',
+      value: formatPercentage(accuracyMetrics.overall.hitRate, 0),
+      description: `across ${accuracyMetrics.overall.totalResolved} resolved markets`,
+    });
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
       {/* Hero */}
@@ -46,10 +74,16 @@ export default async function HomePage() {
           Stock & Earnings Prediction Markets
         </h1>
         <p className="text-gray-600 max-w-2xl">
-          Track prediction markets from Polymarket and Kalshi covering stocks, earnings, and corporate events.
-          See real-time probabilities with historical accuracy scoring.
+          Track prediction markets from{' '}
+          <Link href="/sources/polymarket" className="text-blue-600 hover:underline">Polymarket</Link> and{' '}
+          <Link href="/sources/kalshi" className="text-blue-600 hover:underline">Kalshi</Link> covering stocks, earnings, and corporate events.
+          See real-time probabilities with{' '}
+          <Link href="/methodology" className="text-blue-600 hover:underline">historical accuracy scoring</Link>.
         </p>
       </div>
+
+      {/* Key Takeaways */}
+      <KeyTakeaways title="Platform Overview" items={takeaways} />
 
       {/* Aggregate Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -79,6 +113,9 @@ export default async function HomePage() {
                 ? accuracyMetrics.overall.averageBrierScore.toFixed(3)
                 : '—'}
             </p>
+            <Link href="/methodology#brier-score" className="text-xs text-blue-600 hover:underline">
+              What is this?
+            </Link>
           </CardContent>
         </Card>
       </div>
@@ -137,7 +174,9 @@ export default async function HomePage() {
                         </p>
                         <div className="flex items-center gap-2 mt-1">
                           {market.ticker && (
-                            <Badge variant="info">{market.ticker}</Badge>
+                            <Link href={`/companies/${market.ticker}`}>
+                              <Badge variant="info">{market.ticker}</Badge>
+                            </Link>
                           )}
                           <Badge variant="muted">{market.sector}</Badge>
                           <span className="text-xs text-gray-400">
@@ -192,19 +231,49 @@ export default async function HomePage() {
         </div>
       )}
 
-      {/* JSON-LD Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'WebSite',
-            name: 'Market Predictions',
-            description: 'Stock and earnings prediction market tracker with accuracy scoring',
-            url: 'https://market-predictions-platform.vercel.app',
-          }),
-        }}
-      />
+      {/* Quick Links */}
+      <div className="mt-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Explore</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <Link
+                href="/companies"
+                className="p-3 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 transition-colors text-center"
+              >
+                <p className="font-medium text-gray-900">All Companies</p>
+                <p className="text-xs text-gray-500 mt-1">65+ tracked</p>
+              </Link>
+              <Link
+                href="/analytics"
+                className="p-3 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 transition-colors text-center"
+              >
+                <p className="font-medium text-gray-900">Analytics</p>
+                <p className="text-xs text-gray-500 mt-1">Accuracy metrics</p>
+              </Link>
+              <Link
+                href="/methodology"
+                className="p-3 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 transition-colors text-center"
+              >
+                <p className="font-medium text-gray-900">Methodology</p>
+                <p className="text-xs text-gray-500 mt-1">How we measure</p>
+              </Link>
+              <Link
+                href="/glossary"
+                className="p-3 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 transition-colors text-center"
+              >
+                <p className="font-medium text-gray-900">Glossary</p>
+                <p className="text-xs text-gray-500 mt-1">Key terms</p>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* JSON-LD Structured Data with SearchAction */}
+      <WebSiteJsonLd />
     </div>
   );
 }

@@ -1,14 +1,66 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { formatCurrency, formatPercentage, formatDate } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { ProFeatureButton } from '@/components/ComingSoonBadge';
 import { MarketDetailCharts } from './MarketDetailCharts';
+import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
+import { MarketDatasetJsonLd } from '@/components/seo/JsonLd';
 import type { MarketDocument, PricePoint } from '@/lib/types';
 import { fetchStockPriceHistory } from '@/lib/yahoo-finance';
 
 export const dynamic = 'force-dynamic';
+
+const BASE_URL = 'https://market-predictions-platform.vercel.app';
+
+async function getMarketBySlug(slug: string): Promise<MarketDocument | null> {
+  const [{ fetchPolymarketStockMarkets }, { fetchKalshiStockMarkets }] =
+    await Promise.all([import('@/lib/polymarket'), import('@/lib/kalshi')]);
+  const [polymarkets, kalshiMarkets] = await Promise.all([
+    fetchPolymarketStockMarkets(),
+    fetchKalshiStockMarkets(),
+  ]);
+  const allMarkets = [...polymarkets, ...kalshiMarkets];
+  return allMarkets.find((m) => m.slug === slug) || null;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const market = await getMarketBySlug(slug);
+
+  if (!market) {
+    return { title: 'Market Not Found' };
+  }
+
+  const yesProb = market.outcomes.find((o) => o.name === 'Yes')?.probability || market.outcomes[0]?.probability || 0;
+  const probDisplay = `${Math.round(yesProb * 100)}%`;
+  const volumeDisplay = formatCurrency(market.volume);
+
+  const title = market.question;
+  const description = `Current probability: ${probDisplay} Yes. ${volumeDisplay} volume on ${market.source}. ${market.ticker ? `Track ${market.ticker} prediction markets.` : ''} ${market.description?.slice(0, 120) || ''}`.trim();
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'article',
+      url: `${BASE_URL}/markets/${market.slug}`,
+      siteName: 'Market Predictions',
+    },
+    twitter: {
+      card: 'summary',
+      title,
+      description,
+    },
+    alternates: {
+      canonical: `${BASE_URL}/markets/${market.slug}`,
+    },
+  };
+}
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -57,19 +109,26 @@ export default async function MarketDetailPage({ params }: PageProps) {
 
   const { market, priceHistory, stockPriceHistory, relatedMarkets } = data;
 
+  const truncatedQuestion = market.question.length > 50
+    ? market.question.slice(0, 47) + '...'
+    : market.question;
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-        <Link href="/markets" className="hover:text-gray-700">Markets</Link>
-        <span>/</span>
-        <span className="text-gray-900 truncate">{market.question}</span>
-      </nav>
+      {/* Breadcrumb with JSON-LD */}
+      <Breadcrumbs
+        items={[
+          { label: 'Home', href: '/' },
+          { label: 'Markets', href: '/markets' },
+          { label: truncatedQuestion },
+        ]}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Market metadata */}
+          <section id="probability">
           <Card>
             <CardContent>
               <h1 className="text-xl font-bold text-gray-900 mb-3">{market.question}</h1>
@@ -81,9 +140,11 @@ export default async function MarketDetailPage({ params }: PageProps) {
                   </Link>
                 )}
                 <Badge variant="muted">{market.sector}</Badge>
-                <Badge variant={market.source === 'polymarket' ? 'default' : 'warning'}>
-                  {market.source}
-                </Badge>
+                <Link href={`/sources/${market.source}`}>
+                  <Badge variant={market.source === 'polymarket' ? 'default' : 'warning'}>
+                    {market.source}
+                  </Badge>
+                </Link>
                 <Badge variant={market.status === 'active' ? 'success' : 'muted'}>
                   {market.status}
                 </Badge>
@@ -108,6 +169,7 @@ export default async function MarketDetailPage({ params }: PageProps) {
               </div>
             </CardContent>
           </Card>
+          </section>
 
           {/* Outcome bars */}
           <Card>
@@ -201,21 +263,45 @@ export default async function MarketDetailPage({ params }: PageProps) {
               </CardContent>
             </Card>
           )}
+
+          {/* Quick Links */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Learn More</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-sm">
+                <Link
+                  href={`/sources/${market.source}`}
+                  className="block text-blue-600 hover:text-blue-700"
+                >
+                  About {market.source === 'polymarket' ? 'Polymarket' : 'Kalshi'} →
+                </Link>
+                <Link
+                  href="/methodology#brier-score"
+                  className="block text-blue-600 hover:text-blue-700"
+                >
+                  How we measure accuracy →
+                </Link>
+                <Link
+                  href="/glossary#prediction-market"
+                  className="block text-blue-600 hover:text-blue-700"
+                >
+                  What is a prediction market? →
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
 
-      {/* JSON-LD */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'WebPage',
-            name: market.question,
-            description: market.description,
-            url: `https://market-predictions-platform.vercel.app/markets/${market.slug}`,
-          }),
-        }}
+      {/* JSON-LD Dataset Schema */}
+      <MarketDatasetJsonLd
+        name={market.question}
+        description={market.description || `Prediction market data for ${market.question}`}
+        slug={market.slug}
+        source={market.source}
+        dateCreated={market.startDate?.toString()}
       />
     </div>
   );

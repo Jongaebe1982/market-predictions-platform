@@ -75,3 +75,39 @@ export function getCompaniesBySector(sector: string): CompanyMapping[] {
 export function getAllTickers(): string[] {
   return COMPANY_MAPPINGS.map((c) => c.ticker);
 }
+
+export function getAllSectors(): string[] {
+  const sectors = new Set(COMPANY_MAPPINGS.map((c) => c.sector));
+  return Array.from(sectors).sort();
+}
+
+export function getRelatedCompanies(
+  ticker: string,
+  keywords: string[] = [],
+  maxItems: number = 8
+): CompanyMapping[] {
+  const company = getCompanyByTicker(ticker);
+  if (!company) return [];
+
+  // Get companies in same sector (excluding current)
+  const sectorCompanies = getCompaniesBySector(company.sector).filter(
+    (c) => c.ticker !== ticker
+  );
+
+  // Score by keyword overlap
+  const scored = sectorCompanies.map((c) => {
+    let score = 0;
+    const aliasWords = c.aliases.flatMap((a) => a.toLowerCase().split(/\s+/));
+    keywords.forEach((kw) => {
+      if (aliasWords.some((alias) => alias.includes(kw) || kw.includes(alias))) {
+        score += 1;
+      }
+    });
+    return { company: c, score };
+  });
+
+  // Sort by score descending, then alphabetically
+  scored.sort((a, b) => b.score - a.score || a.company.name.localeCompare(b.company.name));
+
+  return scored.slice(0, maxItems).map((s) => s.company);
+}

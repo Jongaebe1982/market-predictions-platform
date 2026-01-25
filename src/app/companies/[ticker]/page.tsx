@@ -1,27 +1,19 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { getCompanyByTicker } from '@/lib/sector-mapping';
+import { getCompanyByTicker, getCompaniesBySector } from '@/lib/sector-mapping';
 import { formatCurrency, formatPercentage } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
+import { KeyTakeaways } from '@/components/seo/PageSections';
+import { OrganizationJsonLd } from '@/components/seo/JsonLd';
 import type { MarketDocument } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
   params: Promise<{ ticker: string }>;
-}
-
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { ticker } = await params;
-  const company = getCompanyByTicker(ticker.toUpperCase());
-  if (!company) return { title: 'Company Not Found' };
-
-  return {
-    title: `${company.name} (${company.ticker}) Prediction Markets`,
-    description: `Track prediction markets for ${company.name} (${company.ticker}). See accuracy scores, active markets, and historical performance in the ${company.sector} sector.`,
-  };
 }
 
 async function getCompanyMarkets(ticker: string): Promise<MarketDocument[]> {
@@ -35,6 +27,23 @@ async function getCompanyMarkets(ticker: string): Promise<MarketDocument[]> {
   ]);
   const allMarkets = [...polymarkets, ...kalshiMarkets];
   return allMarkets.filter((m) => m.ticker === ticker && m.status === 'active');
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { ticker } = await params;
+  const company = getCompanyByTicker(ticker.toUpperCase());
+  if (!company) return { title: 'Company Not Found' };
+
+  // Check if company has any active markets for noindex decision
+  const activeMarkets = await getCompanyMarkets(ticker.toUpperCase());
+  const hasMarkets = activeMarkets.length > 0;
+
+  return {
+    title: `${company.name} (${company.ticker}) Prediction Markets`,
+    description: `Track prediction markets for ${company.name} (${company.ticker}). See accuracy scores, active markets, and historical performance in the ${company.sector} sector.`,
+    // noindex companies with no active markets
+    robots: hasMarkets ? undefined : { index: false, follow: true },
+  };
 }
 
 export default async function CompanyPage({ params }: PageProps) {
@@ -53,14 +62,45 @@ export default async function CompanyPage({ params }: PageProps) {
     (c) => c.ticker === upperTicker
   );
 
+  // Get related companies in the same sector
+  const relatedCompanies = getCompaniesBySector(company.sector)
+    .filter((c) => c.ticker !== upperTicker)
+    .slice(0, 5);
+
+  // Build key takeaways
+  const takeaways = [];
+  takeaways.push({
+    label: 'Active Markets',
+    value: activeMarkets.length,
+    description: 'open prediction markets',
+  });
+  if (accuracyData) {
+    takeaways.push({
+      label: 'Brier Score',
+      value: accuracyData.averageBrierScore.toFixed(3),
+      description: 'lower is better',
+    });
+    takeaways.push({
+      label: 'Hit Rate',
+      value: formatPercentage(accuracyData.hitRate, 0),
+      description: `across ${accuracyData.resolvedCount} resolved markets`,
+    });
+  }
+  takeaways.push({
+    label: 'Sector',
+    value: company.sector,
+  });
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-        <Link href="/markets" className="hover:text-gray-700">Markets</Link>
-        <span>/</span>
-        <span className="text-gray-900">{company.name}</span>
-      </nav>
+      {/* Breadcrumbs with JSON-LD */}
+      <Breadcrumbs
+        items={[
+          { label: 'Home', href: '/' },
+          { label: 'Companies', href: '/companies' },
+          { label: company.name },
+        ]}
+      />
 
       {/* Company Header */}
       <div className="flex items-center gap-4 mb-8">
@@ -76,6 +116,9 @@ export default async function CompanyPage({ params }: PageProps) {
         </div>
       </div>
 
+      {/* Key Takeaways */}
+      <KeyTakeaways items={takeaways} />
+
       {/* Accuracy Summary */}
       {accuracyData && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -85,6 +128,9 @@ export default async function CompanyPage({ params }: PageProps) {
               <p className="text-2xl font-bold text-gray-900">
                 {accuracyData.averageBrierScore.toFixed(3)}
               </p>
+              <Link href="/methodology#brier-score" className="text-xs text-blue-600 hover:underline">
+                What is this?
+              </Link>
             </CardContent>
           </Card>
           <Card>
@@ -93,6 +139,9 @@ export default async function CompanyPage({ params }: PageProps) {
               <p className="text-2xl font-bold text-green-600">
                 {formatPercentage(accuracyData.hitRate, 0)}
               </p>
+              <Link href="/methodology#calibration" className="text-xs text-blue-600 hover:underline">
+                Learn more
+              </Link>
             </CardContent>
           </Card>
           <Card>
@@ -104,79 +153,150 @@ export default async function CompanyPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* Active Markets */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Active Markets for {company.name}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {activeMarkets.length === 0 ? (
-            <p className="text-gray-500 py-4">No active markets for {company.name} at this time.</p>
-          ) : (
-            <div className="space-y-3">
-              {activeMarkets.map((market) => (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Content */}
+        <div className="lg:col-span-2">
+          {/* Active Markets */}
+          <Card className="mb-8">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Active Markets for {company.name}</CardTitle>
                 <Link
-                  key={market.id}
-                  href={`/markets/${market.slug}`}
-                  className="block p-3 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/20 transition-colors"
+                  href={`/companies/${company.ticker}/markets`}
+                  className="text-sm text-blue-600 hover:text-blue-700"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900">{market.question}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-gray-400">
-                          {formatCurrency(market.volume)} vol
-                        </span>
-                        <Badge variant="muted" className="text-xs">{market.source}</Badge>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-blue-600">
-                        {formatPercentage(market.outcomes[0]?.probability || 0, 0)}
-                      </p>
-                      <p className="text-xs text-gray-500">Yes</p>
-                    </div>
-                  </div>
+                  View all
                 </Link>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {activeMarkets.length === 0 ? (
+                <p className="text-gray-500 py-4">No active markets for {company.name} at this time.</p>
+              ) : (
+                <div className="space-y-3">
+                  {activeMarkets.map((market) => (
+                    <Link
+                      key={market.id}
+                      href={`/markets/${market.slug}`}
+                      className="block p-3 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/20 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900">{market.question}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-gray-400">
+                              {formatCurrency(market.volume)} vol
+                            </span>
+                            <Link href={`/sources/${market.source}`}>
+                              <Badge variant="muted" className="text-xs">{market.source}</Badge>
+                            </Link>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-blue-600">
+                            {formatPercentage(market.outcomes[0]?.probability || 0, 0)}
+                          </p>
+                          <p className="text-xs text-gray-500">Yes</p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* SEO Copy Block */}
-      <Card>
-        <CardContent>
-          <div className="prose prose-sm max-w-none text-gray-600">
-            <p>
-              {company.name} ({company.ticker}) is tracked across multiple prediction markets in
-              the {company.sector} sector. Our platform aggregates market data from Polymarket and
-              Kalshi to provide real-time probability estimates for {company.name}-related events
-              including earnings outcomes, stock price targets, and corporate milestones.
-            </p>
-            {accuracyData && (
-              <p>
-                Historical accuracy for {company.name} markets shows a Brier score
-                of {accuracyData.averageBrierScore.toFixed(3)} across {accuracyData.resolvedCount} resolved
-                markets, with a hit rate of {formatPercentage(accuracyData.hitRate, 0)}.
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          {/* SEO Copy Block */}
+          <Card>
+            <CardContent>
+              <div className="prose prose-sm max-w-none text-gray-600">
+                <p>
+                  {company.name} ({company.ticker}) is tracked across multiple prediction markets in
+                  the {company.sector} sector. Our platform aggregates market data from{' '}
+                  <Link href="/sources/polymarket" className="text-blue-600 hover:underline">Polymarket</Link> and{' '}
+                  <Link href="/sources/kalshi" className="text-blue-600 hover:underline">Kalshi</Link> to
+                  provide real-time probability estimates for {company.name}-related events
+                  including earnings outcomes, stock price targets, and corporate milestones.
+                </p>
+                {accuracyData && (
+                  <p>
+                    Historical accuracy for {company.name} markets shows a{' '}
+                    <Link href="/glossary#brier-score" className="text-blue-600 hover:underline">Brier score</Link>{' '}
+                    of {accuracyData.averageBrierScore.toFixed(3)} across {accuracyData.resolvedCount} resolved
+                    markets, with a hit rate of {formatPercentage(accuracyData.hitRate, 0)}.
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Related Companies */}
+          {relatedCompanies.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>More in {company.sector}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {relatedCompanies.map((related) => (
+                    <Link
+                      key={related.ticker}
+                      href={`/companies/${related.ticker}`}
+                      className="block text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      {related.name} ({related.ticker})
+                    </Link>
+                  ))}
+                </div>
+                <Link
+                  href="/companies"
+                  className="text-sm text-gray-500 hover:text-gray-700 mt-3 inline-block"
+                >
+                  View all companies →
+                </Link>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Quick Links */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Resources</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-sm">
+                <Link
+                  href="/methodology"
+                  className="block text-blue-600 hover:text-blue-700"
+                >
+                  How we measure accuracy →
+                </Link>
+                <Link
+                  href="/analytics"
+                  className="block text-blue-600 hover:text-blue-700"
+                >
+                  Full analytics dashboard →
+                </Link>
+                <Link
+                  href="/glossary"
+                  className="block text-blue-600 hover:text-blue-700"
+                >
+                  Glossary of terms →
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* JSON-LD */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'Organization',
-            name: company.name,
-            tickerSymbol: company.ticker,
-            description: `Prediction market data for ${company.name} (${company.ticker})`,
-          }),
-        }}
+      <OrganizationJsonLd
+        name={company.name}
+        ticker={company.ticker}
+        description={`Prediction market data for ${company.name} (${company.ticker}) in the ${company.sector} sector`}
       />
     </div>
   );

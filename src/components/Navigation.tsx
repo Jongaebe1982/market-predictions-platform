@@ -8,6 +8,7 @@ import { SearchBar } from './SearchBar';
 const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/markets', label: 'Markets' },
+  { href: '/companies', label: 'Companies' },
   { href: '/analytics', label: 'Analytics' },
   { href: '/about', label: 'About' },
 ];
@@ -35,7 +36,8 @@ export function Navigation() {
                   href={link.href}
                   className={cn(
                     'text-sm font-medium transition-colors',
-                    pathname === link.href
+                    pathname === link.href ||
+                      (link.href !== '/' && pathname.startsWith(link.href))
                       ? 'text-blue-600'
                       : 'text-gray-600 hover:text-gray-900'
                   )}
@@ -61,7 +63,8 @@ export function Navigation() {
             href={link.href}
             className={cn(
               'text-sm font-medium whitespace-nowrap transition-colors',
-              pathname === link.href
+              pathname === link.href ||
+                (link.href !== '/' && pathname.startsWith(link.href))
                 ? 'text-blue-600'
                 : 'text-gray-600'
             )}
