@@ -41,6 +41,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/api/', '/api/cron/'],
       },
     ],
-    sitemap: 'https://market-predictions-platform.vercel.app/sitemap.xml',
+    sitemap: 'https://predictionmarketanalytics.io/sitemap.xml',
   };
 }

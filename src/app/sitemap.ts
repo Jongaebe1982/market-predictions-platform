@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { COMPANY_MAPPINGS } from '@/lib/sector-mapping';
 
-const BASE_URL = 'https://market-predictions-platform.vercel.app';
+const BASE_URL = 'https://predictionmarketanalytics.io';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Fetch all markets for dynamic URLs

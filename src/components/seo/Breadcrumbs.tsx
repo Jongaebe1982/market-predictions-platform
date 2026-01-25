@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-const BASE_URL = 'https://market-predictions-platform.vercel.app';
+const BASE_URL = 'https://predictionmarketanalytics.io';
 
 export interface BreadcrumbItem {
   label: string;

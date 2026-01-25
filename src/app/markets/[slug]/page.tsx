@@ -13,7 +13,7 @@ import { fetchStockPriceHistory } from '@/lib/yahoo-finance';
 
 export const dynamic = 'force-dynamic';
 
-const BASE_URL = 'https://market-predictions-platform.vercel.app';
+const BASE_URL = 'https://predictionmarketanalytics.io';
 
 async function getMarketBySlug(slug: string): Promise<MarketDocument | null> {
   const [{ fetchPolymarketStockMarkets }, { fetchKalshiStockMarkets }] =

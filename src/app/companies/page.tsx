@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 // Use dynamic rendering to avoid Firestore quota issues during build
 export const dynamic = 'force-dynamic';
 
-const BASE_URL = 'https://market-predictions-platform.vercel.app';
+const BASE_URL = 'https://predictionmarketanalytics.io';
 
 async function getMarketCounts(): Promise<Record<string, number>> {
   const [{ fetchPolymarketStockMarkets }, { fetchKalshiStockMarkets }] =

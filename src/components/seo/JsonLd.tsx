@@ -1,4 +1,4 @@
-const BASE_URL = 'https://market-predictions-platform.vercel.app';
+const BASE_URL = 'https://predictionmarketanalytics.io';
 
 // WebSite JSON-LD for home page
 interface WebSiteJsonLdProps {
