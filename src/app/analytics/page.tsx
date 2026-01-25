@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { computeRealAccuracyMetrics } from '@/lib/accuracy-compute';
+import { fetchCachedAccuracyMetrics } from '@/lib/accuracy-compute';
 import { formatPercentage } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { AccuracyCharts } from './AccuracyCharts';
@@ -17,7 +17,8 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function AccuracyPage() {
-  const metrics = await computeRealAccuracyMetrics();
+  // Use fast cached metrics from Firestore (pre-computed by cron job)
+  const metrics = await fetchCachedAccuracyMetrics();
 
   // Build key takeaways with actual numbers
   const takeaways = [

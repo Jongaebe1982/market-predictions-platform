@@ -18,6 +18,36 @@ const EMPTY_METRICS: AccuracyMetrics = {
 };
 
 /**
+ * Fast fetch of pre-computed accuracy metrics from Firestore.
+ * These are computed by the cron job and stored in the 'accuracy/current' document.
+ * Falls back to empty metrics if not available.
+ */
+export async function fetchCachedAccuracyMetrics(): Promise<AccuracyMetrics> {
+  const cacheKey = 'cached-accuracy-metrics';
+  const cached = cache.get<AccuracyMetrics>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const db = getAdminDb();
+    const doc = await db.collection('accuracy').doc('current').get();
+
+    if (!doc.exists) {
+      console.log('No cached accuracy metrics found in Firestore');
+      return EMPTY_METRICS;
+    }
+
+    const metrics = doc.data() as AccuracyMetrics;
+
+    // Cache for 5 minutes locally
+    cache.set(cacheKey, metrics, 5 * 60 * 1000);
+    return metrics;
+  } catch (error) {
+    console.error('Error fetching cached accuracy metrics:', error);
+    return EMPTY_METRICS;
+  }
+}
+
+/**
  * Find the probability at a given target timestamp from sorted price history.
  * Returns the closest data point before (or at) the target time.
  */

@@ -21,14 +21,14 @@ async function getKalshiData(): Promise<{
     resolvedCount: number;
   };
 }> {
-  const [{ fetchKalshiStockMarkets }, { computeRealAccuracyMetrics }] = await Promise.all([
+  const [{ fetchKalshiStockMarkets }, { fetchCachedAccuracyMetrics }] = await Promise.all([
     import('@/lib/kalshi'),
     import('@/lib/accuracy-compute'),
   ]);
 
   const [markets, accuracyMetrics] = await Promise.all([
     fetchKalshiStockMarkets(),
-    computeRealAccuracyMetrics(),
+    fetchCachedAccuracyMetrics(),
   ]);
 
   const sourceMetrics = accuracyMetrics.bySource.find((s) => s.source === 'kalshi');

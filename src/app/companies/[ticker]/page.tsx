@@ -55,7 +55,7 @@ export default async function CompanyPage({ params }: PageProps) {
 
   const [activeMarkets, accuracyMetrics] = await Promise.all([
     getCompanyMarkets(upperTicker),
-    import('@/lib/accuracy-compute').then((m) => m.computeRealAccuracyMetrics()),
+    import('@/lib/accuracy-compute').then((m) => m.fetchCachedAccuracyMetrics()),
   ]);
 
   const accuracyData = accuracyMetrics.byCompany.find(

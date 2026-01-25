@@ -21,14 +21,14 @@ async function getPolymarketData(): Promise<{
     resolvedCount: number;
   };
 }> {
-  const [{ fetchPolymarketStockMarkets }, { computeRealAccuracyMetrics }] = await Promise.all([
+  const [{ fetchPolymarketStockMarkets }, { fetchCachedAccuracyMetrics }] = await Promise.all([
     import('@/lib/polymarket'),
     import('@/lib/accuracy-compute'),
   ]);
 
   const [markets, accuracyMetrics] = await Promise.all([
     fetchPolymarketStockMarkets(),
-    computeRealAccuracyMetrics(),
+    fetchCachedAccuracyMetrics(),
   ]);
 
   const sourceMetrics = accuracyMetrics.bySource.find((s) => s.source === 'polymarket');

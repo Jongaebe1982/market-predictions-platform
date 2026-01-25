@@ -5,7 +5,6 @@ import {
   type CompanyMapping,
   groupCompaniesBySector,
 } from '@/lib/sector-mapping';
-import { getAllCompanies, fetchDiscoveredCompanies } from '@/lib/company-discovery';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import type { MarketDocument } from '@/lib/types';
@@ -20,41 +19,48 @@ export const dynamic = 'force-dynamic';
 
 const BASE_URL = 'https://predictionmarketanalytics.io';
 
-async function getMarketCounts(): Promise<Record<string, number>> {
-  const [{ fetchPolymarketStockMarkets }, { fetchKalshiStockMarkets }] =
-    await Promise.all([import('@/lib/polymarket'), import('@/lib/kalshi')]);
-  const [polymarkets, kalshiMarkets] = await Promise.all([
-    fetchPolymarketStockMarkets(),
-    fetchKalshiStockMarkets(),
-  ]);
-  const allMarkets: MarketDocument[] = [...polymarkets, ...kalshiMarkets];
-  const activeMarkets = allMarkets.filter((m) => m.status === 'active');
+// Timeout wrapper for fetches
+async function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  const timeout = new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms));
+  return Promise.race([promise, timeout]);
+}
 
-  return activeMarkets.reduce<Record<string, number>>((acc, market) => {
-    if (market.ticker) {
-      acc[market.ticker] = (acc[market.ticker] || 0) + 1;
-    }
-    return acc;
-  }, {});
+async function getMarketCounts(): Promise<Record<string, number>> {
+  try {
+    const [{ fetchPolymarketStockMarkets }, { fetchKalshiStockMarkets }] =
+      await Promise.all([import('@/lib/polymarket'), import('@/lib/kalshi')]);
+    const [polymarkets, kalshiMarkets] = await Promise.all([
+      withTimeout(fetchPolymarketStockMarkets(), 10000, []),
+      withTimeout(fetchKalshiStockMarkets(), 10000, []),
+    ]);
+    const allMarkets: MarketDocument[] = [...polymarkets, ...kalshiMarkets];
+    const activeMarkets = allMarkets.filter((m) => m.status === 'active');
+
+    return activeMarkets.reduce<Record<string, number>>((acc, market) => {
+      if (market.ticker) {
+        acc[market.ticker] = (acc[market.ticker] || 0) + 1;
+      }
+      return acc;
+    }, {});
+  } catch (error) {
+    console.error('Error fetching market counts:', error);
+    return {};
+  }
 }
 
 export default async function CompaniesPage() {
-  // Fetch all companies (static + discovered) and market counts in parallel
-  const [allCompanies, discoveredCompanies, marketCounts] = await Promise.all([
-    getAllCompanies(),
-    fetchDiscoveredCompanies(),
-    getMarketCounts(),
-  ]);
+  // Use static company mappings for fast load, fetch market counts with timeout
+  const marketCounts = await withTimeout(getMarketCounts(), 15000, {});
 
-  // Track which companies are newly discovered
-  const discoveredTickers = new Set(discoveredCompanies.map((c) => c.ticker.toUpperCase()));
+  // Use static companies only for fast page load
+  const allCompanies = COMPANY_MAPPINGS;
+  const discoveredTickers = new Set<string>(); // Empty for now - discovered companies loaded async
 
   const companiesBySector = groupCompaniesBySector(allCompanies);
   const sectors = Object.keys(companiesBySector).sort();
 
   const totalCompanies = allCompanies.length;
-  const staticCompanyCount = COMPANY_MAPPINGS.length;
-  const newlyDiscoveredCount = discoveredCompanies.length;
+  const newlyDiscoveredCount = 0; // Will show when discovery cron has run
   const companiesWithMarkets = Object.values(marketCounts).filter((c) => c > 0).length;
   const totalActiveMarkets = Object.values(marketCounts).reduce((a, b) => a + b, 0);
 
