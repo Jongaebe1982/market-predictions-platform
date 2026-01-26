@@ -45,9 +45,17 @@ export function Navigation() {
                   {link.label}
                 </Link>
               ))}
-              <span className="text-xs text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">
-                Pro
-              </span>
+              <Link
+                href="/coming-soon"
+                className={cn(
+                  'text-xs border rounded px-1.5 py-0.5 transition-colors',
+                  pathname === '/coming-soon'
+                    ? 'text-purple-600 border-purple-300 bg-purple-50'
+                    : 'text-gray-400 border-gray-200 hover:text-purple-600 hover:border-purple-300'
+                )}
+              >
+                Coming Soon
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-4">
