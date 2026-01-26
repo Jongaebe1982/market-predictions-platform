@@ -80,6 +80,17 @@ export function Navigation() {
             {link.label}
           </Link>
         ))}
+        <Link
+          href="/coming-soon"
+          className={cn(
+            'text-xs border rounded px-1.5 py-0.5 whitespace-nowrap transition-colors',
+            pathname === '/coming-soon'
+              ? 'text-purple-600 border-purple-300 bg-purple-50'
+              : 'text-gray-400 border-gray-200'
+          )}
+        >
+          Coming Soon
+        </Link>
       </nav>
     </header>
   );
