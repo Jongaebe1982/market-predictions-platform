@@ -5,6 +5,7 @@ import {
   type CompanyMapping,
   groupCompaniesBySector,
 } from '@/lib/sector-mapping';
+import { fetchDiscoveredCompanies } from '@/lib/company-discovery';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import type { MarketDocument } from '@/lib/types';
@@ -49,18 +50,35 @@ async function getMarketCounts(): Promise<Record<string, number>> {
 }
 
 export default async function CompaniesPage() {
-  // Use static company mappings for fast load, fetch market counts with timeout
-  const marketCounts = await withTimeout(getMarketCounts(), 15000, {});
+  // Fetch market counts and discovered companies in parallel with timeouts
+  const [marketCounts, discoveredCompanies] = await Promise.all([
+    withTimeout(getMarketCounts(), 15000, {}),
+    withTimeout(fetchDiscoveredCompanies(), 5000, []),
+  ]);
 
-  // Use static companies only for fast page load
-  const allCompanies = COMPANY_MAPPINGS;
-  const discoveredTickers = new Set<string>(); // Empty for now - discovered companies loaded async
+  // Track discovered company tickers
+  const discoveredTickers = new Set(discoveredCompanies.map((c) => c.ticker.toUpperCase()));
+
+  // Convert discovered companies to CompanyMapping format
+  const discoveredAsMappings: CompanyMapping[] = discoveredCompanies.map((c) => ({
+    ticker: c.ticker,
+    name: c.name,
+    sector: c.sector,
+    aliases: c.aliases,
+  }));
+
+  // Combine static + discovered, avoiding duplicates
+  const staticTickers = new Set(COMPANY_MAPPINGS.map((c) => c.ticker.toUpperCase()));
+  const allCompanies = [
+    ...COMPANY_MAPPINGS,
+    ...discoveredAsMappings.filter((c) => !staticTickers.has(c.ticker.toUpperCase())),
+  ];
 
   const companiesBySector = groupCompaniesBySector(allCompanies);
   const sectors = Object.keys(companiesBySector).sort();
 
   const totalCompanies = allCompanies.length;
-  const newlyDiscoveredCount = 0; // Will show when discovery cron has run
+  const newlyDiscoveredCount = discoveredCompanies.length;
   const companiesWithMarkets = Object.values(marketCounts).filter((c) => c > 0).length;
   const totalActiveMarkets = Object.values(marketCounts).reduce((a, b) => a + b, 0);
 
