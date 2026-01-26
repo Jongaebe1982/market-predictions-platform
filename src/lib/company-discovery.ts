@@ -81,6 +81,32 @@ export async function companyExists(ticker: string): Promise<boolean> {
 }
 
 /**
+ * Get a company by ticker (checks both static and discovered)
+ */
+export async function getCompanyByTickerAsync(ticker: string): Promise<CompanyMapping | undefined> {
+  // First check static mappings
+  const staticCompany = getStaticCompany(ticker);
+  if (staticCompany) return staticCompany;
+
+  // Then check discovered companies
+  const discovered = await fetchDiscoveredCompanies();
+  const discoveredCompany = discovered.find(
+    (c) => c.ticker.toLowerCase() === ticker.toLowerCase()
+  );
+
+  if (discoveredCompany) {
+    return {
+      ticker: discoveredCompany.ticker,
+      name: discoveredCompany.name,
+      sector: discoveredCompany.sector,
+      aliases: discoveredCompany.aliases,
+    };
+  }
+
+  return undefined;
+}
+
+/**
  * Save a newly discovered company to Firestore
  */
 export async function saveDiscoveredCompany(

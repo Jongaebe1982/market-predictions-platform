@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { getCompanyByTicker } from '@/lib/sector-mapping';
+import { getCompanyByTickerAsync } from '@/lib/company-discovery';
 import { formatCurrency, formatPercentage, formatDate } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -15,7 +15,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { ticker } = await params;
-  const company = getCompanyByTicker(ticker.toUpperCase());
+  const company = await getCompanyByTickerAsync(ticker.toUpperCase());
   if (!company) return { title: 'Company Not Found' };
 
   return {
@@ -41,7 +41,7 @@ async function getAllCompanyMarkets(ticker: string): Promise<MarketDocument[]> {
 export default async function CompanyMarketsPage({ params }: PageProps) {
   const { ticker } = await params;
   const upperTicker = ticker.toUpperCase();
-  const company = getCompanyByTicker(upperTicker);
+  const company = await getCompanyByTickerAsync(upperTicker);
 
   if (!company) notFound();
 
