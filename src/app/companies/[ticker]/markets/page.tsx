@@ -34,7 +34,8 @@ async function getAllCompanyMarkets(ticker: string): Promise<MarketDocument[]> {
     fetchKalshiStockMarkets(),
   ]);
   const allMarkets = [...polymarkets, ...kalshiMarkets];
-  return allMarkets.filter((m) => m.ticker === ticker);
+  const upperTicker = ticker.toUpperCase();
+  return allMarkets.filter((m) => m.ticker?.toUpperCase() === upperTicker);
 }
 
 export default async function CompanyMarketsPage({ params }: PageProps) {

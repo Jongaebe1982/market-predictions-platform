@@ -26,7 +26,8 @@ async function getCompanyMarkets(ticker: string): Promise<MarketDocument[]> {
     fetchKalshiStockMarkets(),
   ]);
   const allMarkets = [...polymarkets, ...kalshiMarkets];
-  return allMarkets.filter((m) => m.ticker === ticker && m.status === 'active');
+  const upperTicker = ticker.toUpperCase();
+  return allMarkets.filter((m) => m.ticker?.toUpperCase() === upperTicker && m.status === 'active');
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

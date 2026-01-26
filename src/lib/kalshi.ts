@@ -90,6 +90,8 @@ function transformKalshiMarket(m: KalshiMarketResponse): MarketDocument {
   const sector = getSectorFromSeries(seriesPrefix);
   const seriesTicker = getTickerFromSeries(seriesPrefix);
   const ticker = extractTicker(question) || seriesTicker;
+  // Use Kalshi's market ticker in slug to ensure uniqueness
+  const slug = `${slugify(question)}-${m.ticker.toLowerCase()}`;
 
   // Use last_price if available, otherwise mid of bid/ask
   const yesProbability = m.last_price > 0
@@ -100,7 +102,7 @@ function transformKalshiMarket(m: KalshiMarketResponse): MarketDocument {
 
   return {
     id: m.ticker,
-    slug: slugify(question),
+    slug,
     question,
     description: m.subtitle || '',
     source: 'kalshi',
