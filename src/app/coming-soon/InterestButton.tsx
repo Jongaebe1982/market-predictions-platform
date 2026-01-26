@@ -32,6 +32,15 @@ export function InterestButton({ initialCount }: InterestButtonProps) {
     setCount((prev) => prev + 1);
     localStorage.setItem(STORAGE_KEY, 'true');
 
+    // Fire GA event for interest click
+    if (typeof window !== 'undefined' && window.gtag) {
+      window.gtag('event', 'interest_click', {
+        event_category: 'engagement',
+        event_label: 'coming_soon_pro_features',
+        value: 1,
+      });
+    }
+
     try {
       const res = await fetch('/api/interest', {
         method: 'POST',
