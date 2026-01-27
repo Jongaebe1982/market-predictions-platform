@@ -3,6 +3,10 @@ import { COMPANY_MAPPINGS } from '@/lib/sector-mapping';
 
 const BASE_URL = 'https://predictionmarketanalytics.io';
 
+// Fixed dates for static content pages (update these when content actually changes)
+const STATIC_CONTENT_DATE = new Date('2025-01-26');
+const SITE_LAUNCH_DATE = new Date('2025-01-20');
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Fetch all markets for dynamic URLs
   const [{ fetchPolymarketStockMarkets }, { fetchKalshiStockMarkets }] =
@@ -15,32 +19,38 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const allMarkets = [...polymarkets, ...kalshiMarkets];
 
-  // Static pages
+  // Static pages with meaningful lastModified dates
+  // - Dynamic data pages: use today's date (data changes frequently)
+  // - Static content pages: use fixed date (only update when content changes)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Normalize to start of day
+
   const staticPages: MetadataRoute.Sitemap = [
-    { url: BASE_URL, lastModified: new Date(), changeFrequency: 'daily', priority: 1 },
-    { url: `${BASE_URL}/markets`, lastModified: new Date(), changeFrequency: 'hourly', priority: 0.9 },
-    { url: `${BASE_URL}/analytics`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
-    { url: `${BASE_URL}/companies`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
-    { url: `${BASE_URL}/methodology`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${BASE_URL}/glossary`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
-    { url: `${BASE_URL}/sources/polymarket`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.7 },
-    { url: `${BASE_URL}/sources/kalshi`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.7 },
-    { url: `${BASE_URL}/about`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${BASE_URL}/coming-soon`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.6 },
+    { url: BASE_URL, lastModified: today, changeFrequency: 'daily', priority: 1 },
+    { url: `${BASE_URL}/markets`, lastModified: today, changeFrequency: 'hourly', priority: 0.9 },
+    { url: `${BASE_URL}/analytics`, lastModified: today, changeFrequency: 'daily', priority: 0.8 },
+    { url: `${BASE_URL}/companies`, lastModified: today, changeFrequency: 'daily', priority: 0.8 },
+    { url: `${BASE_URL}/sources/polymarket`, lastModified: today, changeFrequency: 'daily', priority: 0.7 },
+    { url: `${BASE_URL}/sources/kalshi`, lastModified: today, changeFrequency: 'daily', priority: 0.7 },
+    // Static content pages - use fixed dates
+    { url: `${BASE_URL}/methodology`, lastModified: STATIC_CONTENT_DATE, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/glossary`, lastModified: STATIC_CONTENT_DATE, changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${BASE_URL}/about`, lastModified: SITE_LAUNCH_DATE, changeFrequency: 'monthly', priority: 0.5 },
+    // Note: /coming-soon excluded - thin/placeholder page not meant to rank
   ];
 
-  // Company pages
+  // Company pages - use site launch date (static company list)
   const companyPages: MetadataRoute.Sitemap = COMPANY_MAPPINGS.map((company) => ({
     url: `${BASE_URL}/companies/${company.ticker}`,
-    lastModified: new Date(),
+    lastModified: SITE_LAUNCH_DATE,
     changeFrequency: 'daily' as const,
     priority: 0.6,
   }));
 
-  // Market pages - hourly refresh, high priority for active markets
+  // Market pages - use actual market updatedAt timestamp
   const marketPages: MetadataRoute.Sitemap = allMarkets.map((market) => ({
     url: `${BASE_URL}/markets/${market.slug}`,
-    lastModified: new Date(),
+    lastModified: market.updatedAt ? new Date(market.updatedAt) : today,
     changeFrequency: 'hourly' as const,
     priority: market.status === 'active' ? 0.7 : 0.5,
   }));
