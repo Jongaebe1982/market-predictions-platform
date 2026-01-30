@@ -167,3 +167,89 @@ export async function fetchKalshiStockMarkets(): Promise<MarketDocument[]> {
     return [];
   }
 }
+
+// Resolved Kalshi market info for accuracy tracking
+export interface ResolvedKalshiMarketInfo {
+  id: string;
+  slug: string;
+  question: string;
+  outcome: 'yes' | 'no';
+  endDate: string;
+  ticker: string | null;
+  sector: string;
+  volume: number;
+  lastPrice: number; // Final probability (0-1)
+}
+
+async function fetchSettledSeriesMarkets(seriesTicker: string): Promise<KalshiMarketResponse[]> {
+  try {
+    // Fetch settled/finalized markets
+    const res = await fetch(
+      `${KALSHI_API}/markets?series_ticker=${seriesTicker}&status=settled&limit=100`,
+      { next: { revalidate: 300 } }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.markets || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchResolvedKalshiMarkets(): Promise<ResolvedKalshiMarketInfo[]> {
+  const cacheKey = 'kalshi-resolved-markets';
+  const cached = cache.get<ResolvedKalshiMarketInfo[]>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    // Fetch settled markets from all relevant series in parallel
+    const allRawMarkets = await Promise.all(
+      FINANCIAL_SERIES.map(fetchSettledSeriesMarkets)
+    );
+
+    // Flatten and dedupe by ticker
+    const seen = new Set<string>();
+    const resolved: ResolvedKalshiMarketInfo[] = [];
+
+    for (const batch of allRawMarkets) {
+      for (const raw of batch) {
+        if (seen.has(raw.ticker)) continue;
+        seen.add(raw.ticker);
+
+        // Must have a result to be considered resolved
+        if (!raw.result || (raw.result !== 'yes' && raw.result !== 'no')) continue;
+
+        // Only include markets with some trading activity
+        if (raw.volume === 0 && raw.open_interest === 0) continue;
+
+        const question = raw.title;
+        const seriesPrefix = raw.event_ticker.split('-')[0];
+        const sector = getSectorFromSeries(seriesPrefix);
+        const seriesTicker = getTickerFromSeries(seriesPrefix);
+        const ticker = extractTicker(question) || seriesTicker;
+        const slug = `${slugify(question)}-${raw.ticker.toLowerCase()}`;
+
+        // Last price is in cents (0-100), convert to probability (0-1)
+        const lastPrice = raw.last_price > 0 ? raw.last_price / 100 : 0.5;
+
+        resolved.push({
+          id: raw.ticker,
+          slug,
+          question,
+          outcome: raw.result as 'yes' | 'no',
+          endDate: raw.close_time,
+          ticker,
+          sector,
+          volume: raw.volume || 0,
+          lastPrice,
+        });
+      }
+    }
+
+    cache.set(cacheKey, resolved, 60 * 60 * 1000); // 1 hour cache
+    return resolved;
+  } catch (error) {
+    console.error('Kalshi resolved fetch error:', error);
+    return [];
+  }
+}

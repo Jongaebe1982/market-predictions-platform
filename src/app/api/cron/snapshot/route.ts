@@ -9,14 +9,21 @@ export async function POST(request: NextRequest) {
 
   try {
     const { fetchPolymarketStockMarkets, fetchPriceHistory } = await import('@/lib/polymarket');
+    const { fetchKalshiStockMarkets } = await import('@/lib/kalshi');
     const { getAdminDb } = await import('@/lib/firebase-admin');
 
-    const markets = await fetchPolymarketStockMarkets();
+    // Fetch markets from both sources in parallel
+    const [polymarkets, kalshiMarkets] = await Promise.all([
+      fetchPolymarketStockMarkets(),
+      fetchKalshiStockMarkets(),
+    ]);
+
+    const allMarkets = [...polymarkets, ...kalshiMarkets];
     const db = getAdminDb();
     const batch = db.batch();
     const timestamp = new Date().toISOString();
 
-    for (const market of markets) {
+    for (const market of allMarkets) {
       // Update market document
       const marketRef = db.collection('markets').doc(market.id);
       batch.set(marketRef, { ...market, updatedAt: timestamp }, { merge: true });
@@ -35,12 +42,13 @@ export async function POST(request: NextRequest) {
 
     await batch.commit();
 
-    // Store CLOB price history for each market (outside batch for size limits)
+    // Store CLOB price history for Polymarket markets (outside batch for size limits)
+    // Note: Kalshi doesn't have a public price history API, so we rely on snapshots
     let priceHistoryStored = 0;
     const PRICE_HISTORY_CONCURRENCY = 5;
 
-    for (let i = 0; i < markets.length; i += PRICE_HISTORY_CONCURRENCY) {
-      const chunk = markets.slice(i, i + PRICE_HISTORY_CONCURRENCY);
+    for (let i = 0; i < polymarkets.length; i += PRICE_HISTORY_CONCURRENCY) {
+      const chunk = polymarkets.slice(i, i + PRICE_HISTORY_CONCURRENCY);
       await Promise.all(
         chunk.map(async (market) => {
           if (!market.sourceId) return;
@@ -64,7 +72,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      marketsProcessed: markets.length,
+      polymarketsProcessed: polymarkets.length,
+      kalshiMarketsProcessed: kalshiMarkets.length,
+      totalMarketsProcessed: allMarkets.length,
       priceHistoryStored,
       timestamp,
     });
