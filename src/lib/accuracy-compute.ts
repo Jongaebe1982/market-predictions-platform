@@ -1,4 +1,5 @@
 import { fetchResolvedStockMarkets, fetchPolymarketStockMarkets, fetchPriceHistoryWithFallback } from './polymarket';
+import { fetchKalshiStockMarkets, fetchResolvedKalshiMarkets } from './kalshi';
 import { HORIZONS, calculateBrierScore, computeAccuracyMetrics } from './accuracy-utils';
 import type { AccuracyMetrics, MarketResolution, IncludedMarket, HorizonKey, HorizonProbability, PricePoint } from './types';
 import { cache } from './cache';
@@ -144,14 +145,23 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
   if (cached) return cached;
 
   try {
-    const [resolvedMarkets, activeMarkets, firestoreResolutions] = await Promise.all([
+    const [
+      polymarketResolved,
+      kalshiResolved,
+      polymarketActive,
+      kalshiActive,
+      firestoreResolutions,
+    ] = await Promise.all([
       fetchResolvedStockMarkets(),
+      fetchResolvedKalshiMarkets(),
       fetchPolymarketStockMarkets(),
+      fetchKalshiStockMarkets(),
       fetchFirestoreResolutions(),
     ]);
 
-    // Build active market entries for the included markets grid
-    const activeIncluded: IncludedMarket[] = activeMarkets.map((m) => ({
+    // Build active market entries for the included markets grid (both sources)
+    const allActiveMarkets = [...polymarketActive, ...kalshiActive];
+    const activeIncluded: IncludedMarket[] = allActiveMarkets.map((m) => ({
       question: m.question,
       ticker: m.ticker,
       source: m.source,
@@ -162,9 +172,9 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
       horizonsAvailable: [],
     }));
 
-    // Process live API resolved markets
-    const liveResolutions = await processWithConcurrency(
-      resolvedMarkets,
+    // Process Polymarket resolved markets (with CLOB price history)
+    const polymarketLiveResolutions = await processWithConcurrency(
+      polymarketResolved,
       CONCURRENCY_LIMIT,
       async (market): Promise<MarketResolution | null> => {
         try {
@@ -223,17 +233,43 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
       }
     );
 
-    const validLiveResolutions = liveResolutions.filter(
+    // Process Kalshi resolved markets (using last price, no historical data available)
+    const kalshiLiveResolutions: MarketResolution[] = kalshiResolved.map((market) => {
+      const outcomeBoolean = market.outcome === 'yes';
+      const brierScore = calculateBrierScore(market.lastPrice, outcomeBoolean);
+
+      return {
+        id: market.id,
+        marketId: market.id,
+        slug: market.slug,
+        question: market.question,
+        sector: market.sector,
+        ticker: market.ticker,
+        source: 'kalshi',
+        resolvedAt: market.endDate,
+        resolution: market.outcome,
+        finalProbability: market.lastPrice,
+        outcome: market.outcome,
+        brierScore,
+        volume: market.volume,
+        horizons: {}, // Kalshi doesn't have historical price data via public API
+      };
+    });
+
+    const validPolymarketResolutions = polymarketLiveResolutions.filter(
       (r): r is MarketResolution => r !== null
     );
 
-    // Merge Firestore + live resolutions, deduplicating by marketId
+    // Merge Firestore + live resolutions from both sources, deduplicating by marketId
     // Live data takes priority over Firestore (more up-to-date)
     const resolutionMap = new Map<string, MarketResolution>();
     for (const r of firestoreResolutions) {
       resolutionMap.set(r.marketId, r);
     }
-    for (const r of validLiveResolutions) {
+    for (const r of validPolymarketResolutions) {
+      resolutionMap.set(r.marketId, r);
+    }
+    for (const r of kalshiLiveResolutions) {
       resolutionMap.set(r.marketId, r);
     }
 

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { fetchCachedAccuracyMetrics } from '@/lib/accuracy-compute';
+import { computeRealAccuracyMetrics } from '@/lib/accuracy-compute';
 import { formatPercentage } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { AccuracyCharts } from './AccuracyCharts';
@@ -17,8 +17,8 @@ export const metadata: Metadata = {
 export const revalidate = 3600;
 
 export default async function AccuracyPage() {
-  // Use fast cached metrics from Firestore (pre-computed by cron job)
-  const metrics = await fetchCachedAccuracyMetrics();
+  // Compute real metrics from live API + Firestore (cached for 1 hour)
+  const metrics = await computeRealAccuracyMetrics();
 
   // Build key takeaways with actual numbers
   const takeaways = [

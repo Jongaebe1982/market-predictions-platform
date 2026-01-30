@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { computeAccuracyMetrics } from '@/lib/accuracy-utils';
-import type { MarketResolution } from '@/lib/types';
+import { computeRealAccuracyMetrics } from '@/lib/accuracy-compute';
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -12,22 +11,17 @@ export async function POST(request: NextRequest) {
     const { getAdminDb } = await import('@/lib/firebase-admin');
     const db = getAdminDb();
 
-    // Fetch all resolutions
-    const snapshot = await db.collection('resolutions').orderBy('resolvedAt', 'desc').get();
-    const resolutions: MarketResolution[] = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as MarketResolution[];
+    // Compute real accuracy metrics from live API + Firestore
+    // This includes both Polymarket and Kalshi data
+    const metrics = await computeRealAccuracyMetrics();
 
-    // Compute accuracy metrics
-    const metrics = computeAccuracyMetrics(resolutions);
-
-    // Store computed metrics
+    // Store computed metrics in Firestore for caching
     await db.collection('accuracy').doc('current').set(metrics);
 
     return NextResponse.json({
       success: true,
-      totalResolved: resolutions.length,
+      totalResolved: metrics.overall.totalResolved,
+      totalTracked: metrics.includedMarkets.length,
       averageBrier: metrics.overall.averageBrierScore,
       hitRate: metrics.overall.hitRate,
     });
