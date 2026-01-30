@@ -15,6 +15,25 @@ export const dynamic = 'force-dynamic';
 
 const BASE_URL = 'https://predictionmarketanalytics.io';
 
+// Build a rich description for structured data (must be 50-5000 chars for Dataset schema)
+function buildMarketDescription(market: MarketDocument): string {
+  const yesProb = market.outcomes.find((o) => o.name === 'Yes')?.probability || market.outcomes[0]?.probability || 0;
+  const probDisplay = `${Math.round(yesProb * 100)}%`;
+  const sourceName = market.source === 'polymarket' ? 'Polymarket' : 'Kalshi';
+
+  const parts = [
+    market.description || `Prediction market: ${market.question}`,
+    `Current probability: ${probDisplay} Yes.`,
+    `Trading volume: ${formatCurrency(market.volume)}.`,
+    `Source: ${sourceName}.`,
+    market.ticker ? `Related to ${market.ticker} stock.` : '',
+    market.sector ? `Sector: ${market.sector}.` : '',
+    'Track real-time probability updates and historical price data.',
+  ];
+
+  return parts.filter(Boolean).join(' ').trim();
+}
+
 async function getMarketBySlug(slug: string): Promise<MarketDocument | null> {
   const [{ fetchPolymarketStockMarkets }, { fetchKalshiStockMarkets }] =
     await Promise.all([import('@/lib/polymarket'), import('@/lib/kalshi')]);
@@ -298,7 +317,7 @@ export default async function MarketDetailPage({ params }: PageProps) {
       {/* JSON-LD Dataset Schema */}
       <MarketDatasetJsonLd
         name={market.question}
-        description={market.description || `Prediction market data for ${market.question}`}
+        description={buildMarketDescription(market)}
         slug={market.slug}
         source={market.source}
         dateCreated={market.startDate?.toString()}

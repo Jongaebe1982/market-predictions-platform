@@ -1,5 +1,25 @@
 const BASE_URL = 'https://predictionmarketanalytics.io';
 
+// Minimum description length for Dataset schema (Google requires 50-5000 chars)
+const MIN_DESCRIPTION_LENGTH = 50;
+
+// Ensures description meets minimum length requirement for structured data
+function ensureMinDescriptionLength(description: string, fallbackContext?: string): string {
+  if (description.length >= MIN_DESCRIPTION_LENGTH) {
+    return description;
+  }
+  // Pad with additional context to meet minimum length
+  const padding = fallbackContext
+    ? ` ${fallbackContext}`
+    : ' View real-time probability data, historical trends, and market analytics.';
+  const padded = description + padding;
+  // If still too short, add more generic context
+  if (padded.length < MIN_DESCRIPTION_LENGTH) {
+    return padded + ' Track prediction market performance and accuracy metrics.';
+  }
+  return padded;
+}
+
 // WebSite JSON-LD for home page
 interface WebSiteJsonLdProps {
   name?: string;
@@ -46,12 +66,17 @@ export function OrganizationJsonLd({
   ticker,
   description,
 }: OrganizationJsonLdProps) {
+  const baseDescription = description || `Prediction market data for ${name} (${ticker})`;
+  const safeDescription = ensureMinDescriptionLength(
+    baseDescription,
+    `Track prediction markets, accuracy scores, and historical performance data.`
+  );
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name,
     tickerSymbol: ticker,
-    description: description || `Prediction market data for ${name} (${ticker})`,
+    description: safeDescription,
     url: `${BASE_URL}/companies/${ticker}`,
   };
 
@@ -81,11 +106,16 @@ export function MarketDatasetJsonLd({
   dateCreated,
   dateModified,
 }: MarketDatasetJsonLdProps) {
+  const sourceName = source === 'polymarket' ? 'Polymarket' : 'Kalshi';
+  const safeDescription = ensureMinDescriptionLength(
+    description,
+    `Track this prediction market on ${sourceName} with real-time probability updates and historical price data.`
+  );
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Dataset',
     name,
-    description,
+    description: safeDescription,
     url: `${BASE_URL}/markets/${slug}`,
     creator: {
       '@type': 'Organization',

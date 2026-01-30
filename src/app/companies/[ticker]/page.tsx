@@ -298,7 +298,7 @@ export default async function CompanyPage({ params }: PageProps) {
       <OrganizationJsonLd
         name={company.name}
         ticker={company.ticker}
-        description={`Prediction market data for ${company.name} (${company.ticker}) in the ${company.sector} sector`}
+        description={`Prediction market data and analytics for ${company.name} (${company.ticker}) in the ${company.sector} sector. Track active markets, accuracy scores, historical performance, and real-time probability updates from Polymarket and Kalshi.`}
       />
     </div>
   );
