@@ -81,7 +81,7 @@ export async function companyExists(ticker: string): Promise<boolean> {
 }
 
 /**
- * Get a company by ticker (checks both static and discovered)
+ * Get a company by ticker (checks static, discovered, and accuracy data)
  */
 export async function getCompanyByTickerAsync(ticker: string): Promise<CompanyMapping | undefined> {
   // First check static mappings
@@ -101,6 +101,49 @@ export async function getCompanyByTickerAsync(ticker: string): Promise<CompanyMa
       sector: discoveredCompany.sector,
       aliases: discoveredCompany.aliases,
     };
+  }
+
+  // Finally, check if there's accuracy data for this ticker
+  // This allows pages to render for tickers that have resolved markets
+  // but aren't in the predefined mappings (e.g., NYSE, SPY, QQQ)
+  try {
+    const { getAdminDb } = await import('./firebase-admin');
+    const db = getAdminDb();
+
+    const upperTicker = ticker.toUpperCase();
+
+    // Check per-company accuracy document first
+    const companyDoc = await db.collection('company-accuracy').doc(upperTicker).get();
+    if (companyDoc.exists) {
+      const data = companyDoc.data();
+      if (data) {
+        return {
+          ticker: upperTicker,
+          name: data.companyName || upperTicker,
+          sector: data.sector || 'Other',
+          aliases: [],
+        };
+      }
+    }
+
+    // Fall back to main accuracy document
+    const mainDoc = await db.collection('accuracy').doc('current').get();
+    if (mainDoc.exists) {
+      const data = mainDoc.data();
+      const companyData = data?.byCompany?.find(
+        (c: { ticker: string }) => c.ticker.toUpperCase() === upperTicker
+      );
+      if (companyData) {
+        return {
+          ticker: upperTicker,
+          name: companyData.companyName || upperTicker,
+          sector: companyData.sector || 'Other',
+          aliases: [],
+        };
+      }
+    }
+  } catch (error) {
+    console.error(`Failed to check accuracy data for ${ticker}:`, error);
   }
 
   return undefined;
