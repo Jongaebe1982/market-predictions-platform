@@ -72,12 +72,12 @@ export default async function CompanyPage({ params }: PageProps) {
   if (!company) notFound();
 
   // Fetch data in parallel
-  // fetchCachedAccuracyMetrics reads pre-computed data from Firestore (fast)
+  // getAccuracyMetricsWithFallback tries cached first, falls back to live with 10s timeout
   // Stock price has 30-min cache with 5-second timeout
   const [activeMarkets, accuracyMetrics, stockPriceHistory] = await Promise.all([
     getCompanyMarkets(upperTicker),
     import('@/lib/accuracy-compute')
-      .then((m) => m.fetchCachedAccuracyMetrics())
+      .then((m) => m.getAccuracyMetricsWithFallback())
       .catch(() => null), // Return null if accuracy fetch fails
     import('@/lib/yahoo-finance')
       .then((m) => m.fetchStockPriceHistory(upperTicker, 30))

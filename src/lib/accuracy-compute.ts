@@ -49,6 +49,39 @@ export async function fetchCachedAccuracyMetrics(): Promise<AccuracyMetrics> {
 }
 
 /**
+ * Get accuracy metrics with fallback: tries cached first, then computes live if cache is empty.
+ * This ensures data is shown even if the cron job hasn't populated the cache yet.
+ * Uses a 10-second timeout on live computation to prevent slow page loads.
+ */
+export async function getAccuracyMetricsWithFallback(): Promise<AccuracyMetrics> {
+  // First try cached (fast)
+  const cached = await fetchCachedAccuracyMetrics();
+
+  // If cache has data, use it
+  if (cached.overall.totalResolved > 0 || cached.byCompany.length > 0) {
+    return cached;
+  }
+
+  // Cache is empty - try live computation with timeout
+  try {
+    const timeoutPromise = new Promise<AccuracyMetrics>((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout')), 10000);
+    });
+
+    const liveMetrics = await Promise.race([
+      computeRealAccuracyMetrics(),
+      timeoutPromise,
+    ]);
+
+    return liveMetrics;
+  } catch (error) {
+    // Timeout or error - return empty metrics rather than blocking
+    console.error('Live accuracy computation failed or timed out:', error);
+    return EMPTY_METRICS;
+  }
+}
+
+/**
  * Find the probability at a given target timestamp from sorted price history.
  * Returns the closest data point before (or at) the target time.
  */

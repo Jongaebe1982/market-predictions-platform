@@ -14,14 +14,14 @@ export async function GET(
     return NextResponse.json({ error: 'Company not found' }, { status: 404 });
   }
 
-  const [{ fetchPolymarketStockMarkets }, { fetchCachedAccuracyMetrics }] = await Promise.all([
+  const [{ fetchPolymarketStockMarkets }, { getAccuracyMetricsWithFallback }] = await Promise.all([
     import('@/lib/polymarket'),
     import('@/lib/accuracy-compute'),
   ]);
 
   const [allMarkets, accuracyMetrics] = await Promise.all([
     fetchPolymarketStockMarkets(),
-    fetchCachedAccuracyMetrics(),
+    getAccuracyMetricsWithFallback(),
   ]);
 
   const activeMarkets = allMarkets.filter((m) => m.ticker === upperTicker && m.status === 'active');
