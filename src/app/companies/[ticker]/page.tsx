@@ -18,7 +18,16 @@ interface PageProps {
   params: Promise<{ ticker: string }>;
 }
 
-async function getCompanyMarkets(ticker: string): Promise<MarketDocument[]> {
+// Cache for combined markets to avoid refetching on every company page
+let marketsCache: { data: MarketDocument[]; timestamp: number } | null = null;
+const MARKETS_CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+
+async function getAllMarketsCached(): Promise<MarketDocument[]> {
+  const now = Date.now();
+  if (marketsCache && now - marketsCache.timestamp < MARKETS_CACHE_TTL) {
+    return marketsCache.data;
+  }
+
   const [{ fetchPolymarketStockMarkets }, { fetchKalshiStockMarkets }] = await Promise.all([
     import('@/lib/polymarket'),
     import('@/lib/kalshi'),
@@ -28,6 +37,12 @@ async function getCompanyMarkets(ticker: string): Promise<MarketDocument[]> {
     fetchKalshiStockMarkets(),
   ]);
   const allMarkets = [...polymarkets, ...kalshiMarkets];
+  marketsCache = { data: allMarkets, timestamp: now };
+  return allMarkets;
+}
+
+async function getCompanyMarkets(ticker: string): Promise<MarketDocument[]> {
+  const allMarkets = await getAllMarketsCached();
   const upperTicker = ticker.toUpperCase();
   return allMarkets.filter((m) => m.ticker?.toUpperCase() === upperTicker && m.status === 'active');
 }
@@ -56,10 +71,14 @@ export default async function CompanyPage({ params }: PageProps) {
 
   if (!company) notFound();
 
+  // Use cached metrics for fast page loads (updated by cron job)
+  // Stock price fetched in parallel with short timeout
   const [activeMarkets, accuracyMetrics, stockPriceHistory] = await Promise.all([
     getCompanyMarkets(upperTicker),
-    import('@/lib/accuracy-compute').then((m) => m.computeRealAccuracyMetrics()),
-    import('@/lib/yahoo-finance').then((m) => m.fetchStockPriceHistory(upperTicker, 30)),
+    import('@/lib/accuracy-compute').then((m) => m.fetchCachedAccuracyMetrics()),
+    import('@/lib/yahoo-finance')
+      .then((m) => m.fetchStockPriceHistory(upperTicker, 30))
+      .catch(() => []), // Don't block page load if stock fetch fails
   ]);
 
   const accuracyData = accuracyMetrics.byCompany.find(

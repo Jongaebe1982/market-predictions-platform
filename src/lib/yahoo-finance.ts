@@ -79,12 +79,20 @@ export async function fetchStockPriceHistory(
     const period1 = new Date();
     period1.setDate(period1.getDate() - days);
 
+    // Add timeout to prevent slow requests from blocking page load
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
     const result = await yf.chart(ticker, {
       period1: period1.toISOString().split('T')[0],
       interval,
     });
 
+    clearTimeout(timeoutId);
+
     if (!result || !result.quotes || result.quotes.length === 0) {
+      // Cache empty result for 5 minutes to avoid repeated failed requests
+      cache.set(cacheKey, [], 5 * 60 * 1000);
       return [];
     }
 
@@ -95,10 +103,13 @@ export async function fetchStockPriceHistory(
         price: q.close!,
       }));
 
-    cache.set(cacheKey, history, CACHE_TTL.STOCK_PRICE);
+    // Cache for 30 minutes (stock history doesn't change frequently)
+    cache.set(cacheKey, history, 30 * 60 * 1000);
     return history;
   } catch (error) {
     console.error(`Yahoo Finance history error for ${ticker}:`, error);
+    // Cache failures for 5 minutes to avoid hammering the API
+    cache.set(cacheKey, [], 5 * 60 * 1000);
     return [];
   }
 }
