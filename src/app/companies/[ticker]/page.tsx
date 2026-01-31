@@ -10,9 +10,47 @@ import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { KeyTakeaways } from '@/components/seo/PageSections';
 import { OrganizationJsonLd } from '@/components/seo/JsonLd';
 import { CompanyStockChart } from './CompanyStockChart';
-import type { MarketDocument } from '@/lib/types';
+import type { MarketDocument, AccuracyMetrics, CompanyAccuracy } from '@/lib/types';
+import { cache } from '@/lib/cache';
 
 export const dynamic = 'force-dynamic';
+
+// Fetch accuracy metrics with in-memory caching (5 min TTL)
+async function getAccuracyDataForCompany(ticker: string): Promise<CompanyAccuracy | null> {
+  const cacheKey = 'company-accuracy-metrics';
+  let metrics = cache.get<AccuracyMetrics>(cacheKey);
+
+  if (!metrics) {
+    try {
+      // Use internal API route which handles all the computation
+      const baseUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+
+      const res = await fetch(`${baseUrl}/api/accuracy`, {
+        signal: controller.signal,
+        next: { revalidate: 300 }, // Cache for 5 minutes
+      });
+
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        metrics = await res.json();
+        cache.set(cacheKey, metrics, 5 * 60 * 1000); // 5 min local cache
+      }
+    } catch (error) {
+      console.error('Failed to fetch accuracy metrics:', error);
+      return null;
+    }
+  }
+
+  if (!metrics) return null;
+
+  return metrics.byCompany?.find((c) => c.ticker === ticker) || null;
+}
 
 interface PageProps {
   params: Promise<{ ticker: string }>;
@@ -72,21 +110,14 @@ export default async function CompanyPage({ params }: PageProps) {
   if (!company) notFound();
 
   // Fetch data in parallel
-  // getAccuracyMetricsWithFallback tries cached first, falls back to live with 10s timeout
   // Stock price has 30-min cache with 5-second timeout
-  const [activeMarkets, accuracyMetrics, stockPriceHistory] = await Promise.all([
+  const [activeMarkets, accuracyData, stockPriceHistory] = await Promise.all([
     getCompanyMarkets(upperTicker),
-    import('@/lib/accuracy-compute')
-      .then((m) => m.getAccuracyMetricsWithFallback())
-      .catch(() => null), // Return null if accuracy fetch fails
+    getAccuracyDataForCompany(upperTicker),
     import('@/lib/yahoo-finance')
       .then((m) => m.fetchStockPriceHistory(upperTicker, 30))
       .catch(() => []), // Don't block page load if stock fetch fails
   ]);
-
-  const accuracyData = accuracyMetrics?.byCompany?.find(
-    (c) => c.ticker === upperTicker
-  );
 
   // Get related companies in the same sector
   const relatedCompanies = getCompaniesBySector(company.sector)
