@@ -10,39 +10,10 @@ import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { KeyTakeaways } from '@/components/seo/PageSections';
 import { OrganizationJsonLd } from '@/components/seo/JsonLd';
 import { CompanyStockChart } from './CompanyStockChart';
-import type { MarketDocument, CompanyAccuracy } from '@/lib/types';
-import { cache } from '@/lib/cache';
+import { CompanyAccuracyStats, CompanyAccuracyTakeaways } from './CompanyAccuracyStats';
+import type { MarketDocument } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
-
-// Fetch company accuracy from the public API (most reliable method)
-async function getCompanyAccuracy(ticker: string): Promise<CompanyAccuracy | null> {
-  const cacheKey = `company-accuracy-${ticker}`;
-  const cached = cache.get<CompanyAccuracy | null>(cacheKey);
-  if (cached !== undefined) return cached;
-
-  try {
-    // Use the public production URL - this is the most reliable
-    const res = await fetch('https://predictionmarketanalytics.io/api/accuracy', {
-      next: { revalidate: 300 }, // Cache for 5 minutes
-    });
-
-    if (!res.ok) {
-      console.error('Failed to fetch accuracy API:', res.status);
-      return null;
-    }
-
-    const metrics = await res.json();
-    const companyData = metrics.byCompany?.find((c: CompanyAccuracy) => c.ticker === ticker) || null;
-
-    // Cache result for 10 minutes
-    cache.set(cacheKey, companyData, 10 * 60 * 1000);
-    return companyData;
-  } catch (error) {
-    console.error(`Failed to fetch accuracy for ${ticker}:`, error);
-    return null;
-  }
-}
 
 interface PageProps {
   params: Promise<{ ticker: string }>;
@@ -102,12 +73,9 @@ export default async function CompanyPage({ params }: PageProps) {
   if (!company) notFound();
 
   // Fetch data in parallel - all fast operations
-  // - getCompanyMarkets: ~200ms (API calls with cache)
-  // - getCompanyAccuracy: ~50ms (single Firestore doc read)
-  // - fetchStockPriceHistory: ~100ms (Yahoo API with cache)
-  const [activeMarkets, accuracyData, stockPriceHistory] = await Promise.all([
+  // Accuracy data is loaded client-side for reliability
+  const [activeMarkets, stockPriceHistory] = await Promise.all([
     getCompanyMarkets(upperTicker),
-    getCompanyAccuracy(upperTicker),
     import('@/lib/yahoo-finance')
       .then((m) => m.fetchStockPriceHistory(upperTicker, 30))
       .catch(() => []), // Don't block page load if stock fetch fails
@@ -118,29 +86,18 @@ export default async function CompanyPage({ params }: PageProps) {
     .filter((c) => c.ticker !== upperTicker)
     .slice(0, 5);
 
-  // Build key takeaways
-  const takeaways = [];
-  takeaways.push({
-    label: 'Active Markets',
-    value: activeMarkets.length,
-    description: 'open prediction markets',
-  });
-  if (accuracyData) {
-    takeaways.push({
-      label: 'Brier Score',
-      value: accuracyData.averageBrierScore.toFixed(3),
-      description: 'lower is better',
-    });
-    takeaways.push({
-      label: 'Hit Rate',
-      value: formatPercentage(accuracyData.hitRate, 0),
-      description: `across ${accuracyData.resolvedCount} resolved markets`,
-    });
-  }
-  takeaways.push({
-    label: 'Sector',
-    value: company.sector,
-  });
+  // Build key takeaways (accuracy metrics loaded client-side)
+  const takeaways = [
+    {
+      label: 'Active Markets',
+      value: activeMarkets.length,
+      description: 'open prediction markets',
+    },
+    {
+      label: 'Sector',
+      value: company.sector,
+    },
+  ];
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
@@ -170,39 +127,8 @@ export default async function CompanyPage({ params }: PageProps) {
       {/* Key Takeaways */}
       <KeyTakeaways items={takeaways} />
 
-      {/* Accuracy Summary */}
-      {accuracyData && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <Card>
-            <CardContent>
-              <p className="text-sm text-gray-500">Brier Score</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {accuracyData.averageBrierScore.toFixed(3)}
-              </p>
-              <Link href="/methodology#brier-score" className="text-xs text-blue-600 hover:underline">
-                What is this?
-              </Link>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent>
-              <p className="text-sm text-gray-500">Hit Rate</p>
-              <p className="text-2xl font-bold text-green-600">
-                {formatPercentage(accuracyData.hitRate, 0)}
-              </p>
-              <Link href="/methodology#calibration" className="text-xs text-blue-600 hover:underline">
-                Learn more
-              </Link>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent>
-              <p className="text-sm text-gray-500">Markets Resolved</p>
-              <p className="text-2xl font-bold text-gray-900">{accuracyData.resolvedCount}</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Accuracy Summary - loaded client-side for reliability */}
+      <CompanyAccuracyStats ticker={upperTicker} />
 
       {/* Stock Price Chart */}
       <CompanyStockChart
@@ -276,14 +202,6 @@ export default async function CompanyPage({ params }: PageProps) {
                   provide real-time probability estimates for {company.name}-related events
                   including earnings outcomes, stock price targets, and corporate milestones.
                 </p>
-                {accuracyData && (
-                  <p>
-                    Historical accuracy for {company.name} markets shows a{' '}
-                    <Link href="/glossary#brier-score" className="text-blue-600 hover:underline">Brier score</Link>{' '}
-                    of {accuracyData.averageBrierScore.toFixed(3)} across {accuracyData.resolvedCount} resolved
-                    markets, with a hit rate of {formatPercentage(accuracyData.hitRate, 0)}.
-                  </p>
-                )}
               </div>
             </CardContent>
           </Card>
