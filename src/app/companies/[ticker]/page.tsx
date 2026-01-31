@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { KeyTakeaways } from '@/components/seo/PageSections';
 import { OrganizationJsonLd } from '@/components/seo/JsonLd';
+import { CompanyStockChart } from './CompanyStockChart';
 import type { MarketDocument } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -55,9 +56,10 @@ export default async function CompanyPage({ params }: PageProps) {
 
   if (!company) notFound();
 
-  const [activeMarkets, accuracyMetrics] = await Promise.all([
+  const [activeMarkets, accuracyMetrics, stockPriceHistory] = await Promise.all([
     getCompanyMarkets(upperTicker),
-    import('@/lib/accuracy-compute').then((m) => m.fetchCachedAccuracyMetrics()),
+    import('@/lib/accuracy-compute').then((m) => m.computeRealAccuracyMetrics()),
+    import('@/lib/yahoo-finance').then((m) => m.fetchStockPriceHistory(upperTicker, 30)),
   ]);
 
   const accuracyData = accuracyMetrics.byCompany.find(
@@ -154,6 +156,13 @@ export default async function CompanyPage({ params }: PageProps) {
           </Card>
         </div>
       )}
+
+      {/* Stock Price Chart */}
+      <CompanyStockChart
+        stockPriceHistory={stockPriceHistory}
+        ticker={company.ticker}
+        companyName={company.name}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content */}
