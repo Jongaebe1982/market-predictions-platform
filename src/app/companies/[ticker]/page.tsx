@@ -71,17 +71,20 @@ export default async function CompanyPage({ params }: PageProps) {
 
   if (!company) notFound();
 
-  // Use cached metrics for fast page loads (updated by cron job)
-  // Stock price fetched in parallel with short timeout
+  // Fetch data in parallel
+  // computeRealAccuracyMetrics has 1-hour cache, so only first request is slow
+  // Stock price has 30-min cache with 5-second timeout
   const [activeMarkets, accuracyMetrics, stockPriceHistory] = await Promise.all([
     getCompanyMarkets(upperTicker),
-    import('@/lib/accuracy-compute').then((m) => m.fetchCachedAccuracyMetrics()),
+    import('@/lib/accuracy-compute')
+      .then((m) => m.computeRealAccuracyMetrics())
+      .catch(() => null), // Return null if accuracy fetch fails
     import('@/lib/yahoo-finance')
       .then((m) => m.fetchStockPriceHistory(upperTicker, 30))
       .catch(() => []), // Don't block page load if stock fetch fails
   ]);
 
-  const accuracyData = accuracyMetrics.byCompany.find(
+  const accuracyData = accuracyMetrics?.byCompany?.find(
     (c) => c.ticker === upperTicker
   );
 
