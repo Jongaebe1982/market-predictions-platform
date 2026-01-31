@@ -10,46 +10,37 @@ import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { KeyTakeaways } from '@/components/seo/PageSections';
 import { OrganizationJsonLd } from '@/components/seo/JsonLd';
 import { CompanyStockChart } from './CompanyStockChart';
-import type { MarketDocument, AccuracyMetrics, CompanyAccuracy } from '@/lib/types';
+import type { MarketDocument, CompanyAccuracy } from '@/lib/types';
 import { cache } from '@/lib/cache';
 
 export const dynamic = 'force-dynamic';
 
-// Fetch accuracy metrics with in-memory caching (5 min TTL)
-async function getAccuracyDataForCompany(ticker: string): Promise<CompanyAccuracy | null> {
-  const cacheKey = 'company-accuracy-metrics';
-  let metrics = cache.get<AccuracyMetrics>(cacheKey);
+// Fast Firestore read for company accuracy data (precomputed by cron)
+async function getCompanyAccuracy(ticker: string): Promise<CompanyAccuracy | null> {
+  const cacheKey = `company-accuracy-${ticker}`;
+  const cached = cache.get<CompanyAccuracy>(cacheKey);
+  if (cached) return cached;
 
-  if (!metrics) {
-    try {
-      // Use internal API route which handles all the computation
-      const baseUrl = process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  try {
+    const { getAdminDb } = await import('@/lib/firebase-admin');
+    const db = getAdminDb();
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+    const doc = await db.collection('company-accuracy').doc(ticker).get();
 
-      const res = await fetch(`${baseUrl}/api/accuracy`, {
-        signal: controller.signal,
-        next: { revalidate: 300 }, // Cache for 5 minutes
-      });
-
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        metrics = await res.json();
-        cache.set(cacheKey, metrics, 5 * 60 * 1000); // 5 min local cache
-      }
-    } catch (error) {
-      console.error('Failed to fetch accuracy metrics:', error);
+    if (!doc.exists) {
+      // Cache miss for 1 minute to avoid repeated lookups
+      cache.set(cacheKey, null, 60 * 1000);
       return null;
     }
+
+    const data = doc.data() as CompanyAccuracy;
+    // Cache for 5 minutes
+    cache.set(cacheKey, data, 5 * 60 * 1000);
+    return data;
+  } catch (error) {
+    console.error(`Failed to fetch accuracy for ${ticker}:`, error);
+    return null;
   }
-
-  if (!metrics) return null;
-
-  return metrics.byCompany?.find((c) => c.ticker === ticker) || null;
 }
 
 interface PageProps {
@@ -109,11 +100,13 @@ export default async function CompanyPage({ params }: PageProps) {
 
   if (!company) notFound();
 
-  // Fetch data in parallel
-  // Stock price has 30-min cache with 5-second timeout
+  // Fetch data in parallel - all fast operations
+  // - getCompanyMarkets: ~200ms (API calls with cache)
+  // - getCompanyAccuracy: ~50ms (single Firestore doc read)
+  // - fetchStockPriceHistory: ~100ms (Yahoo API with cache)
   const [activeMarkets, accuracyData, stockPriceHistory] = await Promise.all([
     getCompanyMarkets(upperTicker),
-    getAccuracyDataForCompany(upperTicker),
+    getCompanyAccuracy(upperTicker),
     import('@/lib/yahoo-finance')
       .then((m) => m.fetchStockPriceHistory(upperTicker, 30))
       .catch(() => []), // Don't block page load if stock fetch fails

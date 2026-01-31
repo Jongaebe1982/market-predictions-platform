@@ -14,18 +14,18 @@ export async function GET(
     return NextResponse.json({ error: 'Company not found' }, { status: 404 });
   }
 
-  const [{ fetchPolymarketStockMarkets }, { getAccuracyMetricsWithFallback }] = await Promise.all([
-    import('@/lib/polymarket'),
-    import('@/lib/accuracy-compute'),
-  ]);
+  const { fetchPolymarketStockMarkets } = await import('@/lib/polymarket');
+  const { getAdminDb } = await import('@/lib/firebase-admin');
 
-  const [allMarkets, accuracyMetrics] = await Promise.all([
+  const db = getAdminDb();
+
+  const [allMarkets, accuracyDoc] = await Promise.all([
     fetchPolymarketStockMarkets(),
-    getAccuracyMetricsWithFallback(),
+    db.collection('company-accuracy').doc(upperTicker).get(),
   ]);
 
   const activeMarkets = allMarkets.filter((m) => m.ticker === upperTicker && m.status === 'active');
-  const accuracyData = accuracyMetrics.byCompany.find((c) => c.ticker === upperTicker) || null;
+  const accuracyData = accuracyDoc.exists ? accuracyDoc.data() : null;
 
   const companyData: CompanyData = {
     ticker: upperTicker,
