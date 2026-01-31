@@ -15,17 +15,15 @@ export async function GET(
   }
 
   const { fetchPolymarketStockMarkets } = await import('@/lib/polymarket');
-  const { getAdminDb } = await import('@/lib/firebase-admin');
+  const { computeRealAccuracyMetrics } = await import('@/lib/accuracy-compute');
 
-  const db = getAdminDb();
-
-  const [allMarkets, accuracyDoc] = await Promise.all([
+  const [allMarkets, metrics] = await Promise.all([
     fetchPolymarketStockMarkets(),
-    db.collection('company-accuracy').doc(upperTicker).get(),
+    computeRealAccuracyMetrics(),
   ]);
 
   const activeMarkets = allMarkets.filter((m) => m.ticker === upperTicker && m.status === 'active');
-  const accuracyData = accuracyDoc.exists ? (accuracyDoc.data() as CompanyAccuracy) : null;
+  const accuracyData = metrics.byCompany?.find((c) => c.ticker === upperTicker) || null;
 
   const companyData: CompanyData = {
     ticker: upperTicker,

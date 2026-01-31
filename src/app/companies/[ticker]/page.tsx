@@ -15,42 +15,22 @@ import { cache } from '@/lib/cache';
 
 export const dynamic = 'force-dynamic';
 
-// Fast Firestore read for company accuracy data (precomputed by cron)
-// Falls back to main accuracy document if per-company doc doesn't exist yet
+// Get company accuracy using computeRealAccuracyMetrics (same as /api/accuracy)
+// This function has a 1-hour internal cache, so subsequent calls are fast
 async function getCompanyAccuracy(ticker: string): Promise<CompanyAccuracy | null> {
   const cacheKey = `company-accuracy-${ticker}`;
-  const cached = cache.get<CompanyAccuracy>(cacheKey);
-  if (cached) return cached;
+  const cached = cache.get<CompanyAccuracy | null>(cacheKey);
+  if (cached !== undefined) return cached;
 
   try {
-    const { getAdminDb } = await import('@/lib/firebase-admin');
-    const db = getAdminDb();
+    const { computeRealAccuracyMetrics } = await import('@/lib/accuracy-compute');
+    const metrics = await computeRealAccuracyMetrics();
 
-    // Try per-company document first (fastest)
-    const companyDoc = await db.collection('company-accuracy').doc(ticker).get();
+    const companyData = metrics.byCompany?.find((c) => c.ticker === ticker) || null;
 
-    if (companyDoc.exists) {
-      const data = companyDoc.data() as CompanyAccuracy;
-      cache.set(cacheKey, data, 5 * 60 * 1000);
-      return data;
-    }
-
-    // Fallback: read from main accuracy document and find company
-    const mainDoc = await db.collection('accuracy').doc('current').get();
-    if (mainDoc.exists) {
-      const metrics = mainDoc.data();
-      const companyData = metrics?.byCompany?.find(
-        (c: CompanyAccuracy) => c.ticker === ticker
-      );
-      if (companyData) {
-        cache.set(cacheKey, companyData, 5 * 60 * 1000);
-        return companyData;
-      }
-    }
-
-    // No data found - cache null for 1 minute
-    cache.set(cacheKey, null, 60 * 1000);
-    return null;
+    // Cache result for 10 minutes
+    cache.set(cacheKey, companyData, 10 * 60 * 1000);
+    return companyData;
   } catch (error) {
     console.error(`Failed to fetch accuracy for ${ticker}:`, error);
     return null;
