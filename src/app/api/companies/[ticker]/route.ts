@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCompanyByTicker } from '@/lib/sector-mapping';
-import type { CompanyData } from '@/lib/types';
+import type { CompanyData, CompanyAccuracy } from '@/lib/types';
 
 export async function GET(
   request: NextRequest,
@@ -25,7 +25,7 @@ export async function GET(
   ]);
 
   const activeMarkets = allMarkets.filter((m) => m.ticker === upperTicker && m.status === 'active');
-  const accuracyData = accuracyDoc.exists ? accuracyDoc.data() : null;
+  const accuracyData = accuracyDoc.exists ? (accuracyDoc.data() as CompanyAccuracy) : null;
 
   const companyData: CompanyData = {
     ticker: upperTicker,

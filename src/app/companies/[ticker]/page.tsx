@@ -16,6 +16,7 @@ import { cache } from '@/lib/cache';
 export const dynamic = 'force-dynamic';
 
 // Fast Firestore read for company accuracy data (precomputed by cron)
+// Falls back to main accuracy document if per-company doc doesn't exist yet
 async function getCompanyAccuracy(ticker: string): Promise<CompanyAccuracy | null> {
   const cacheKey = `company-accuracy-${ticker}`;
   const cached = cache.get<CompanyAccuracy>(cacheKey);
@@ -25,18 +26,31 @@ async function getCompanyAccuracy(ticker: string): Promise<CompanyAccuracy | nul
     const { getAdminDb } = await import('@/lib/firebase-admin');
     const db = getAdminDb();
 
-    const doc = await db.collection('company-accuracy').doc(ticker).get();
+    // Try per-company document first (fastest)
+    const companyDoc = await db.collection('company-accuracy').doc(ticker).get();
 
-    if (!doc.exists) {
-      // Cache miss for 1 minute to avoid repeated lookups
-      cache.set(cacheKey, null, 60 * 1000);
-      return null;
+    if (companyDoc.exists) {
+      const data = companyDoc.data() as CompanyAccuracy;
+      cache.set(cacheKey, data, 5 * 60 * 1000);
+      return data;
     }
 
-    const data = doc.data() as CompanyAccuracy;
-    // Cache for 5 minutes
-    cache.set(cacheKey, data, 5 * 60 * 1000);
-    return data;
+    // Fallback: read from main accuracy document and find company
+    const mainDoc = await db.collection('accuracy').doc('current').get();
+    if (mainDoc.exists) {
+      const metrics = mainDoc.data();
+      const companyData = metrics?.byCompany?.find(
+        (c: CompanyAccuracy) => c.ticker === ticker
+      );
+      if (companyData) {
+        cache.set(cacheKey, companyData, 5 * 60 * 1000);
+        return companyData;
+      }
+    }
+
+    // No data found - cache null for 1 minute
+    cache.set(cacheKey, null, 60 * 1000);
+    return null;
   } catch (error) {
     console.error(`Failed to fetch accuracy for ${ticker}:`, error);
     return null;
