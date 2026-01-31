@@ -28,13 +28,17 @@ interface WebSiteJsonLdProps {
 
 export function WebSiteJsonLd({
   name = 'Market Predictions',
-  description = 'Stock and earnings prediction market tracker with accuracy scoring',
+  description = 'Track stock and earnings prediction markets with real-time probability data, accuracy scoring, and historical performance analysis from Polymarket and Kalshi.',
 }: WebSiteJsonLdProps) {
+  const safeDescription = ensureMinDescriptionLength(
+    description,
+    'Monitor prediction market trends, company-specific forecasts, and market resolution outcomes.'
+  );
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     name,
-    description,
+    description: safeDescription,
     url: BASE_URL,
     potentialAction: {
       '@type': 'SearchAction',
@@ -182,11 +186,15 @@ interface ItemListJsonLdProps {
 }
 
 export function ItemListJsonLd({ name, description, items }: ItemListJsonLdProps) {
+  const safeDescription = ensureMinDescriptionLength(
+    description,
+    `Browse ${items.length} items with detailed information and analytics.`
+  );
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     name,
-    description,
+    description: safeDescription,
     numberOfItems: items.length,
     itemListElement: items.map((item, index) => ({
       '@type': 'ListItem',

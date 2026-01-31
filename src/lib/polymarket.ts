@@ -55,6 +55,41 @@ export async function fetchPolymarketStockMarkets(): Promise<MarketDocument[]> {
   }
 }
 
+// Fetch all Polymarket markets including resolved (for slug lookup on market detail pages)
+export async function fetchAllPolymarketMarkets(): Promise<MarketDocument[]> {
+  const cacheKey = 'polymarket-all-markets';
+  const cached = cache.get<MarketDocument[]>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    // Fetch both active and closed markets
+    const [stocksActive, stocksClosed, earningsActive, earningsClosed] = await Promise.all([
+      fetch(`${POLYMARKET_GAMMA_API}/markets?tag_id=${TAG_IDS.STOCKS}&closed=false&limit=100`),
+      fetch(`${POLYMARKET_GAMMA_API}/markets?tag_id=${TAG_IDS.STOCKS}&closed=true&limit=100`),
+      fetch(`${POLYMARKET_GAMMA_API}/markets?tag_id=${TAG_IDS.EARNINGS}&closed=false&limit=100`),
+      fetch(`${POLYMARKET_GAMMA_API}/markets?tag_id=${TAG_IDS.EARNINGS}&closed=true&limit=100`),
+    ]);
+
+    const stocksActiveData: GammaMarket[] = stocksActive.ok ? await stocksActive.json() : [];
+    const stocksClosedData: GammaMarket[] = stocksClosed.ok ? await stocksClosed.json() : [];
+    const earningsActiveData: GammaMarket[] = earningsActive.ok ? await earningsActive.json() : [];
+    const earningsClosedData: GammaMarket[] = earningsClosed.ok ? await earningsClosed.json() : [];
+
+    // Dedupe by id
+    const allMarkets = new Map<string, GammaMarket>();
+    [...stocksActiveData, ...stocksClosedData, ...earningsActiveData, ...earningsClosedData]
+      .forEach((m) => allMarkets.set(m.id, m));
+
+    const markets = Array.from(allMarkets.values()).map(transformGammaMarket);
+
+    cache.set(cacheKey, markets, 5 * 60 * 1000); // 5 min cache
+    return markets;
+  } catch (error) {
+    console.error('Polymarket all markets fetch error:', error);
+    return [];
+  }
+}
+
 /**
  * Extract a potential company name from a market question.
  * e.g. "MicroStrategy sells any Bitcoin..." → "MicroStrategy"

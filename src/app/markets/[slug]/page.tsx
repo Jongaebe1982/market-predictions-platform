@@ -8,18 +8,37 @@ import { ProFeatureButton } from '@/components/ComingSoonBadge';
 import { MarketDetailCharts } from './MarketDetailCharts';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { MarketDatasetJsonLd } from '@/components/seo/JsonLd';
-import type { MarketDocument, PricePoint } from '@/lib/types';
+import type { MarketDocument, PricePoint, MarketResolution } from '@/lib/types';
 import { fetchStockPriceHistory } from '@/lib/yahoo-finance';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 export const dynamic = 'force-dynamic';
 
 const BASE_URL = 'https://predictionmarketanalytics.io';
 
 // Build a rich description for structured data (must be 50-5000 chars for Dataset schema)
-function buildMarketDescription(market: MarketDocument): string {
+function buildMarketDescription(market: MarketDocument, resolution?: MarketResolution | null): string {
+  const sourceName = market.source === 'polymarket' ? 'Polymarket' : 'Kalshi';
+  const isResolved = market.status === 'resolved' || !!resolution;
+
+  if (isResolved) {
+    const outcome = resolution?.outcome || market.resolution || 'unknown';
+    const brierScore = resolution?.brierScore;
+    const parts = [
+      market.description || `Prediction market: ${market.question}`,
+      `This market has resolved to ${outcome.toUpperCase()}.`,
+      brierScore !== undefined ? `Brier Score: ${brierScore.toFixed(3)} (lower is better).` : '',
+      `Final trading volume: ${formatCurrency(market.volume)}.`,
+      `Source: ${sourceName}.`,
+      market.ticker ? `Related to ${market.ticker} stock.` : '',
+      market.sector ? `Sector: ${market.sector}.` : '',
+      'View historical probability data and market accuracy analysis.',
+    ];
+    return parts.filter(Boolean).join(' ').trim();
+  }
+
   const yesProb = market.outcomes.find((o) => o.name === 'Yes')?.probability || market.outcomes[0]?.probability || 0;
   const probDisplay = `${Math.round(yesProb * 100)}%`;
-  const sourceName = market.source === 'polymarket' ? 'Polymarket' : 'Kalshi';
 
   const parts = [
     market.description || `Prediction market: ${market.question}`,
@@ -35,14 +54,44 @@ function buildMarketDescription(market: MarketDocument): string {
 }
 
 async function getMarketBySlug(slug: string): Promise<MarketDocument | null> {
-  const [{ fetchPolymarketStockMarkets }, { fetchKalshiStockMarkets }] =
+  // Fetch ALL markets including resolved ones so we don't 404 on resolved markets
+  const [{ fetchAllPolymarketMarkets }, { fetchAllKalshiMarkets }] =
     await Promise.all([import('@/lib/polymarket'), import('@/lib/kalshi')]);
   const [polymarkets, kalshiMarkets] = await Promise.all([
-    fetchPolymarketStockMarkets(),
-    fetchKalshiStockMarkets(),
+    fetchAllPolymarketMarkets(),
+    fetchAllKalshiMarkets(),
   ]);
   const allMarkets = [...polymarkets, ...kalshiMarkets];
   return allMarkets.find((m) => m.slug === slug) || null;
+}
+
+// Fetch resolution data (Brier score, horizons) for a resolved market
+async function getMarketResolution(marketId: string): Promise<MarketResolution | null> {
+  try {
+    const db = getAdminDb();
+    const doc = await db.collection('resolutions').doc(marketId).get();
+    if (!doc.exists) return null;
+    const data = doc.data();
+    return {
+      id: doc.id,
+      marketId: data?.marketId || doc.id,
+      slug: data?.slug || '',
+      question: data?.question || '',
+      sector: data?.sector || 'Technology',
+      ticker: data?.ticker || null,
+      source: data?.source || 'polymarket',
+      resolvedAt: data?.resolvedAt || '',
+      resolution: data?.resolution || data?.outcome || '',
+      finalProbability: data?.finalProbability || 0,
+      outcome: data?.outcome || 'no',
+      brierScore: data?.brierScore || 0,
+      volume: data?.volume || 0,
+      horizons: data?.horizons || {},
+    } as MarketResolution;
+  } catch (error) {
+    console.error('Error fetching market resolution:', error);
+    return null;
+  }
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -53,12 +102,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: 'Market Not Found' };
   }
 
-  const yesProb = market.outcomes.find((o) => o.name === 'Yes')?.probability || market.outcomes[0]?.probability || 0;
-  const probDisplay = `${Math.round(yesProb * 100)}%`;
+  const isResolved = market.status === 'resolved';
   const volumeDisplay = formatCurrency(market.volume);
 
+  let description: string;
+  if (isResolved) {
+    const outcome = market.resolution || 'Yes/No';
+    description = `Resolved: ${outcome.toUpperCase()}. Final volume: ${volumeDisplay} on ${market.source}. ${market.ticker ? `${market.ticker} prediction market.` : ''} ${market.description?.slice(0, 100) || ''}`.trim();
+  } else {
+    const yesProb = market.outcomes.find((o) => o.name === 'Yes')?.probability || market.outcomes[0]?.probability || 0;
+    const probDisplay = `${Math.round(yesProb * 100)}%`;
+    description = `Current probability: ${probDisplay} Yes. ${volumeDisplay} volume on ${market.source}. ${market.ticker ? `Track ${market.ticker} prediction markets.` : ''} ${market.description?.slice(0, 120) || ''}`.trim();
+  }
+
   const title = market.question;
-  const description = `Current probability: ${probDisplay} Yes. ${volumeDisplay} volume on ${market.source}. ${market.ticker ? `Track ${market.ticker} prediction markets.` : ''} ${market.description?.slice(0, 120) || ''}`.trim();
 
   return {
     title,
@@ -90,19 +147,25 @@ async function getMarketData(slug: string): Promise<{
   priceHistory: PricePoint[];
   stockPriceHistory: { timestamp: number; price: number }[];
   relatedMarkets: MarketDocument[];
+  resolution: MarketResolution | null;
 } | null> {
-  const [{ fetchPolymarketStockMarkets, fetchPriceHistory }, { fetchKalshiStockMarkets }] =
+  // Fetch ALL markets including resolved ones
+  const [{ fetchAllPolymarketMarkets, fetchPriceHistoryWithFallback }, { fetchAllKalshiMarkets }] =
     await Promise.all([import('@/lib/polymarket'), import('@/lib/kalshi')]);
   const [polymarkets, kalshiMarkets] = await Promise.all([
-    fetchPolymarketStockMarkets(),
-    fetchKalshiStockMarkets(),
+    fetchAllPolymarketMarkets(),
+    fetchAllKalshiMarkets(),
   ]);
   const allMarkets = [...polymarkets, ...kalshiMarkets];
   const market = allMarkets.find((m) => m.slug === slug);
   if (!market) return null;
 
+  // Fetch resolution data if market is resolved
+  const resolution = market.status === 'resolved' ? await getMarketResolution(market.id) : null;
+
+  // Use fetchPriceHistoryWithFallback to get stored history for resolved markets
   const priceHistory = market.source === 'polymarket'
-    ? await fetchPriceHistory(market.sourceId)
+    ? await fetchPriceHistoryWithFallback(market.sourceId, market.id)
     : [];
 
   // Fetch stock price history if market has a ticker
@@ -113,11 +176,12 @@ async function getMarketData(slug: string): Promise<{
     stockPriceHistory = await fetchStockPriceHistory(market.ticker, Math.max(days, 5));
   }
 
+  // Only show active markets in related markets
   const relatedMarkets = allMarkets.filter(
-    (m) => m.id !== market.id && (m.sector === market.sector || m.ticker === market.ticker)
+    (m) => m.id !== market.id && m.status === 'active' && (m.sector === market.sector || m.ticker === market.ticker)
   ).slice(0, 4);
 
-  return { market, priceHistory, stockPriceHistory, relatedMarkets };
+  return { market, priceHistory, stockPriceHistory, relatedMarkets, resolution };
 }
 
 export default async function MarketDetailPage({ params }: PageProps) {
@@ -126,7 +190,8 @@ export default async function MarketDetailPage({ params }: PageProps) {
   const data = await getMarketData(slug);
   if (!data) notFound();
 
-  const { market, priceHistory, stockPriceHistory, relatedMarkets } = data;
+  const { market, priceHistory, stockPriceHistory, relatedMarkets, resolution } = data;
+  const isResolved = market.status === 'resolved';
 
   const truncatedQuestion = market.question.length > 50
     ? market.question.slice(0, 47) + '...'
@@ -164,8 +229,8 @@ export default async function MarketDetailPage({ params }: PageProps) {
                     {market.source}
                   </Badge>
                 </Link>
-                <Badge variant={market.status === 'active' ? 'success' : 'muted'}>
-                  {market.status}
+                <Badge variant={market.status === 'active' ? 'success' : market.status === 'resolved' ? 'info' : 'muted'}>
+                  {market.status === 'resolved' ? `Resolved: ${(resolution?.outcome || market.resolution)?.toUpperCase() || 'N/A'}` : market.status}
                 </Badge>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
@@ -190,34 +255,114 @@ export default async function MarketDetailPage({ params }: PageProps) {
           </Card>
           </section>
 
-          {/* Outcome bars */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Current Probabilities</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {market.outcomes.map((outcome) => (
-                  <div key={outcome.name}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-700">{outcome.name}</span>
-                      <span className="text-sm font-bold text-gray-900">
-                        {formatPercentage(outcome.probability, 1)}
+          {/* Outcome bars / Resolution display */}
+          {isResolved ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Resolution</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Resolved Outcome */}
+                  <div className="flex items-center gap-4">
+                    <div className={`flex items-center justify-center w-16 h-16 rounded-full ${
+                      (resolution?.outcome || market.resolution)?.toLowerCase() === 'yes'
+                        ? 'bg-green-100'
+                        : 'bg-red-100'
+                    }`}>
+                      <span className={`text-2xl font-bold ${
+                        (resolution?.outcome || market.resolution)?.toLowerCase() === 'yes'
+                          ? 'text-green-600'
+                          : 'text-red-600'
+                      }`}>
+                        {(resolution?.outcome || market.resolution)?.toUpperCase() || 'N/A'}
                       </span>
                     </div>
-                    <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${
-                          outcome.name === 'Yes' ? 'bg-blue-500' : 'bg-red-400'
-                        }`}
-                        style={{ width: `${outcome.probability * 100}%` }}
-                      />
+                    <div>
+                      <p className="text-sm text-gray-500">Resolved Outcome</p>
+                      <p className="text-lg font-semibold text-gray-900">
+                        This market resolved to {(resolution?.outcome || market.resolution)?.toUpperCase() || 'N/A'}
+                      </p>
+                      {market.resolvedAt && (
+                        <p className="text-sm text-gray-500">on {formatDate(market.resolvedAt)}</p>
+                      )}
                     </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+
+                  {/* Brier Score if available */}
+                  {resolution?.brierScore !== undefined && (
+                    <div className="border-t pt-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-500">Brier Score</p>
+                          <p className="text-xl font-bold text-gray-900">
+                            {resolution.brierScore.toFixed(3)}
+                          </p>
+                          <Link href="/methodology#brier-score" className="text-xs text-blue-600 hover:underline">
+                            Lower is better
+                          </Link>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Final Probability</p>
+                          <p className="text-xl font-bold text-gray-900">
+                            {formatPercentage(resolution.finalProbability || 0, 1)}
+                          </p>
+                          <p className="text-xs text-gray-500">before resolution</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Horizon data if available */}
+                  {resolution?.horizons && Object.keys(resolution.horizons).length > 0 && (
+                    <div className="border-t pt-4">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Probability Over Time</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-sm">
+                        {(['30d', '14d', '7d', '1d', '12h'] as const).map((key) => {
+                          const horizon = resolution.horizons?.[key];
+                          if (!horizon) return null;
+                          return (
+                            <div key={key} className="bg-gray-50 rounded p-2 text-center">
+                              <p className="text-xs text-gray-500">{key} before</p>
+                              <p className="font-semibold">{formatPercentage(horizon.probability, 0)}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Current Probabilities</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {market.outcomes.map((outcome) => (
+                    <div key={outcome.name}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-gray-700">{outcome.name}</span>
+                        <span className="text-sm font-bold text-gray-900">
+                          {formatPercentage(outcome.probability, 1)}
+                        </span>
+                      </div>
+                      <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            outcome.name === 'Yes' ? 'bg-blue-500' : 'bg-red-400'
+                          }`}
+                          style={{ width: `${outcome.probability * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Probability chart (client component) */}
           <MarketDetailCharts priceHistory={priceHistory} stockPriceHistory={stockPriceHistory} ticker={market.ticker} />
@@ -317,7 +462,7 @@ export default async function MarketDetailPage({ params }: PageProps) {
       {/* JSON-LD Dataset Schema */}
       <MarketDatasetJsonLd
         name={market.question}
-        description={buildMarketDescription(market)}
+        description={buildMarketDescription(market, resolution)}
         slug={market.slug}
         source={market.source}
         dateCreated={market.startDate?.toString()}

@@ -64,6 +64,23 @@ async function fetchSeriesMarkets(seriesTicker: string): Promise<KalshiMarketRes
   }
 }
 
+// Fetch both active and settled markets for a series (used for slug lookup)
+async function fetchSeriesMarketsAll(seriesTicker: string): Promise<KalshiMarketResponse[]> {
+  try {
+    const [activeRes, settledRes] = await Promise.all([
+      fetch(`${KALSHI_API}/markets?series_ticker=${seriesTicker}&status=open&limit=100`, { next: { revalidate: 120 } }),
+      fetch(`${KALSHI_API}/markets?series_ticker=${seriesTicker}&status=settled&limit=100`, { next: { revalidate: 300 } }),
+    ]);
+
+    const activeData = activeRes.ok ? await activeRes.json() : { markets: [] };
+    const settledData = settledRes.ok ? await settledRes.json() : { markets: [] };
+
+    return [...(activeData.markets || []), ...(settledData.markets || [])];
+  } catch {
+    return [];
+  }
+}
+
 function getSectorFromSeries(seriesTicker: string): string {
   if (seriesTicker.includes('INX') || seriesTicker.includes('NASDAQ') || seriesTicker.includes('100')) return 'Financials';
   if (seriesTicker.includes('FED') || seriesTicker.includes('FRM') || seriesTicker.includes('TNOTE')) return 'Finance';
@@ -164,6 +181,41 @@ export async function fetchKalshiStockMarkets(): Promise<MarketDocument[]> {
     return markets;
   } catch (error) {
     console.error('Kalshi fetch error:', error);
+    return [];
+  }
+}
+
+// Fetch all Kalshi markets including resolved (for slug lookup on market detail pages)
+export async function fetchAllKalshiMarkets(): Promise<MarketDocument[]> {
+  const cacheKey = 'kalshi-all-markets';
+  const cached = cache.get<MarketDocument[]>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    // Fetch both active and settled markets from all series
+    const allRawMarkets = await Promise.all(
+      FINANCIAL_SERIES.map(fetchSeriesMarketsAll)
+    );
+
+    // Flatten and dedupe by ticker
+    const seen = new Set<string>();
+    const markets: MarketDocument[] = [];
+
+    for (const batch of allRawMarkets) {
+      for (const raw of batch) {
+        if (seen.has(raw.ticker)) continue;
+        seen.add(raw.ticker);
+        markets.push(transformKalshiMarket(raw));
+      }
+    }
+
+    // Sort by volume descending
+    markets.sort((a, b) => b.volume - a.volume);
+
+    cache.set(cacheKey, markets, 5 * 60 * 1000); // 5 min cache (includes resolved)
+    return markets;
+  } catch (error) {
+    console.error('Kalshi all markets fetch error:', error);
     return [];
   }
 }
