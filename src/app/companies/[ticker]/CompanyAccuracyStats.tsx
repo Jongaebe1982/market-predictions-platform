@@ -10,18 +10,69 @@ interface CompanyAccuracyStatsProps {
   ticker: string;
 }
 
+// Browser-side cache for accuracy data (5 min TTL)
+const CACHE_KEY = 'accuracy-data';
+const CACHE_TTL = 5 * 60 * 1000;
+
+interface CachedData {
+  data: { byCompany: CompanyAccuracy[] };
+  timestamp: number;
+}
+
+function getCachedData(): CachedData | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    if (!cached) return null;
+    const parsed = JSON.parse(cached) as CachedData;
+    if (Date.now() - parsed.timestamp > CACHE_TTL) {
+      sessionStorage.removeItem(CACHE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedData(data: { byCompany: CompanyAccuracy[] }) {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export function CompanyAccuracyStats({ ticker }: CompanyAccuracyStatsProps) {
   const [accuracy, setAccuracy] = useState<CompanyAccuracy | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchAccuracy() {
+      // Check browser cache first (instant)
+      const cached = getCachedData();
+      if (cached) {
+        const companyData = cached.data.byCompany?.find(
+          (c: CompanyAccuracy) => c.ticker === ticker
+        );
+        if (companyData) {
+          setAccuracy(companyData);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Fetch from API
       try {
-        // Use dedicated lightweight endpoint for faster response
-        const res = await fetch(`/api/company-accuracy/${ticker}`);
+        const res = await fetch('/api/accuracy');
         if (res.ok) {
           const data = await res.json();
-          setAccuracy(data);
+          setCachedData(data); // Cache for next time
+          const companyData = data.byCompany?.find(
+            (c: CompanyAccuracy) => c.ticker === ticker
+          );
+          setAccuracy(companyData || null);
         }
       } catch (error) {
         console.error('Failed to fetch accuracy:', error);
@@ -94,10 +145,13 @@ export function CompanyAccuracyTakeaways({ ticker }: CompanyAccuracyStatsProps) 
   useEffect(() => {
     async function fetchAccuracy() {
       try {
-        const res = await fetch(`/api/company-accuracy/${ticker}`);
+        const res = await fetch('/api/accuracy');
         if (res.ok) {
           const data = await res.json();
-          setAccuracy(data);
+          const companyData = data.byCompany?.find(
+            (c: CompanyAccuracy) => c.ticker === ticker
+          );
+          setAccuracy(companyData || null);
         }
       } catch (error) {
         console.error('Failed to fetch accuracy:', error);
