@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { getCompaniesBySector } from '@/lib/sector-mapping';
-import { getCompanyByTickerAsync } from '@/lib/company-discovery';
+import { getCompanyOrFallback } from '@/lib/company-discovery';
 import { formatCurrency, formatPercentage } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -50,7 +50,7 @@ async function getCompanyMarkets(ticker: string): Promise<MarketDocument[]> {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { ticker } = await params;
-  const company = await getCompanyByTickerAsync(ticker.toUpperCase());
+  const company = await getCompanyOrFallback(ticker.toUpperCase());
   if (!company) return { title: 'Company Not Found' };
 
   // Check if company has any active markets for noindex decision
@@ -68,7 +68,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function CompanyPage({ params }: PageProps) {
   const { ticker } = await params;
   const upperTicker = ticker.toUpperCase();
-  const company = await getCompanyByTickerAsync(upperTicker);
+  const company = await getCompanyOrFallback(upperTicker);
 
   if (!company) notFound();
 
