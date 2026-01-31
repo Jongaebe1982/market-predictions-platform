@@ -15,18 +15,25 @@ import { cache } from '@/lib/cache';
 
 export const dynamic = 'force-dynamic';
 
-// Get company accuracy using computeRealAccuracyMetrics (same as /api/accuracy)
-// This function has a 1-hour internal cache, so subsequent calls are fast
+// Fetch company accuracy from the public API (most reliable method)
 async function getCompanyAccuracy(ticker: string): Promise<CompanyAccuracy | null> {
   const cacheKey = `company-accuracy-${ticker}`;
   const cached = cache.get<CompanyAccuracy | null>(cacheKey);
   if (cached !== undefined) return cached;
 
   try {
-    const { computeRealAccuracyMetrics } = await import('@/lib/accuracy-compute');
-    const metrics = await computeRealAccuracyMetrics();
+    // Use the public production URL - this is the most reliable
+    const res = await fetch('https://predictionmarketanalytics.io/api/accuracy', {
+      next: { revalidate: 300 }, // Cache for 5 minutes
+    });
 
-    const companyData = metrics.byCompany?.find((c) => c.ticker === ticker) || null;
+    if (!res.ok) {
+      console.error('Failed to fetch accuracy API:', res.status);
+      return null;
+    }
+
+    const metrics = await res.json();
+    const companyData = metrics.byCompany?.find((c: CompanyAccuracy) => c.ticker === ticker) || null;
 
     // Cache result for 10 minutes
     cache.set(cacheKey, companyData, 10 * 60 * 1000);
