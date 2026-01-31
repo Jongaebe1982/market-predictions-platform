@@ -17,11 +17,11 @@ export function CompanyAccuracyStats({ ticker }: CompanyAccuracyStatsProps) {
   useEffect(() => {
     async function fetchAccuracy() {
       try {
-        const res = await fetch('/api/accuracy');
+        // Use dedicated lightweight endpoint for faster response
+        const res = await fetch(`/api/company-accuracy/${ticker}`);
         if (res.ok) {
           const data = await res.json();
-          const companyData = data.byCompany?.find((c: CompanyAccuracy) => c.ticker === ticker);
-          setAccuracy(companyData || null);
+          setAccuracy(data);
         }
       } catch (error) {
         console.error('Failed to fetch accuracy:', error);
@@ -94,11 +94,10 @@ export function CompanyAccuracyTakeaways({ ticker }: CompanyAccuracyStatsProps) 
   useEffect(() => {
     async function fetchAccuracy() {
       try {
-        const res = await fetch('/api/accuracy');
+        const res = await fetch(`/api/company-accuracy/${ticker}`);
         if (res.ok) {
           const data = await res.json();
-          const companyData = data.byCompany?.find((c: CompanyAccuracy) => c.ticker === ticker);
-          setAccuracy(companyData || null);
+          setAccuracy(data);
         }
       } catch (error) {
         console.error('Failed to fetch accuracy:', error);
