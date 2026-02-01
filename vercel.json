@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/discover-companies",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/generate-content",
+      "schedule": "0 4 * * *"
     }
   ]
 }

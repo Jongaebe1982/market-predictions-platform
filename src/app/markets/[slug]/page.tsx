@@ -8,9 +8,10 @@ import { ProFeatureButton } from '@/components/ComingSoonBadge';
 import { MarketDetailCharts } from './MarketDetailCharts';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { MarketDatasetJsonLd } from '@/components/seo/JsonLd';
-import type { MarketDocument, PricePoint, MarketResolution } from '@/lib/types';
+import type { MarketDocument, PricePoint, MarketResolution, MarketContent } from '@/lib/types';
 import { fetchStockPriceHistory } from '@/lib/yahoo-finance';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { MarketExplanation } from '@/components/market/MarketExplanation';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +64,19 @@ async function getMarketBySlug(slug: string): Promise<MarketDocument | null> {
   ]);
   const allMarkets = [...polymarkets, ...kalshiMarkets];
   return allMarkets.find((m) => m.slug === slug) || null;
+}
+
+// Fetch pre-generated market content from Firestore
+async function getMarketContent(marketId: string): Promise<MarketContent | null> {
+  try {
+    const db = getAdminDb();
+    const doc = await db.collection('market-content').doc(marketId).get();
+    if (!doc.exists) return null;
+    return doc.data() as MarketContent;
+  } catch (error) {
+    console.error('Error fetching market content:', error);
+    return null;
+  }
 }
 
 // Fetch resolution data (Brier score, horizons) for a resolved market
@@ -148,6 +162,7 @@ async function getMarketData(slug: string): Promise<{
   stockPriceHistory: { timestamp: number; price: number }[];
   relatedMarkets: MarketDocument[];
   resolution: MarketResolution | null;
+  marketContent: MarketContent | null;
 } | null> {
   // Fetch ALL markets including resolved ones
   const [{ fetchAllPolymarketMarkets, fetchPriceHistoryWithFallback }, { fetchAllKalshiMarkets }] =
@@ -160,8 +175,11 @@ async function getMarketData(slug: string): Promise<{
   const market = allMarkets.find((m) => m.slug === slug);
   if (!market) return null;
 
-  // Fetch resolution data if market is resolved
-  const resolution = market.status === 'resolved' ? await getMarketResolution(market.id) : null;
+  // Fetch resolution data if market is resolved, and pre-generated content
+  const [resolution, marketContent] = await Promise.all([
+    market.status === 'resolved' ? getMarketResolution(market.id) : Promise.resolve(null),
+    getMarketContent(market.id),
+  ]);
 
   // Use fetchPriceHistoryWithFallback to get stored history for resolved markets
   const priceHistory = market.source === 'polymarket'
@@ -181,7 +199,7 @@ async function getMarketData(slug: string): Promise<{
     (m) => m.id !== market.id && m.status === 'active' && (m.sector === market.sector || m.ticker === market.ticker)
   ).slice(0, 4);
 
-  return { market, priceHistory, stockPriceHistory, relatedMarkets, resolution };
+  return { market, priceHistory, stockPriceHistory, relatedMarkets, resolution, marketContent };
 }
 
 export default async function MarketDetailPage({ params }: PageProps) {
@@ -190,7 +208,7 @@ export default async function MarketDetailPage({ params }: PageProps) {
   const data = await getMarketData(slug);
   if (!data) notFound();
 
-  const { market, priceHistory, stockPriceHistory, relatedMarkets, resolution } = data;
+  const { market, priceHistory, stockPriceHistory, relatedMarkets, resolution, marketContent } = data;
   const isResolved = market.status === 'resolved';
 
   const truncatedQuestion = market.question.length > 50
@@ -363,6 +381,9 @@ export default async function MarketDetailPage({ params }: PageProps) {
               </CardContent>
             </Card>
           )}
+
+          {/* Market Explanation (SEO content) */}
+          <MarketExplanation content={marketContent} market={market} />
 
           {/* Probability chart (client component) */}
           <MarketDetailCharts priceHistory={priceHistory} stockPriceHistory={stockPriceHistory} ticker={market.ticker} />
