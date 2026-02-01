@@ -184,3 +184,22 @@ export interface PaginatedResponse<T> {
   pageSize: number;
   hasMore: boolean;
 }
+
+export interface MarketContent {
+  id: string;                    // market.id
+  slug: string;
+  introSentence: string;         // "This market asks whether..."
+  companyContext: string | null; // Company paragraph
+  probabilityAnalysis: string;   // Current prob + movement
+  fullContent: string;           // Combined for SEO
+  generatedAt: string;
+  dataHash: string;              // For cache invalidation
+  generationType: 'template' | 'ai-enhanced';
+  inputSnapshot: {
+    probability: number;
+    probabilityChange30d: number | null;
+    volume: number;
+    ticker: string | null;
+    sector: string;
+  };
+}
