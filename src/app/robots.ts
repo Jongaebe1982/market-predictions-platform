@@ -41,6 +41,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/api/', '/api/cron/'],
       },
     ],
-    sitemap: 'https://predictionmarketanalytics.io/sitemap.xml',
+    sitemap: 'https://predictionmarketanalytics.io/sitemap_index.xml',
   };
 }

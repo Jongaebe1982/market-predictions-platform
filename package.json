@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "npx tsx src/__tests__/sitemap.test.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.20",
