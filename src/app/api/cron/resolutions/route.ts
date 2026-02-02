@@ -200,3 +200,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Resolution detection failed' }, { status: 500 });
   }
 }
+
+// Vercel crons use GET requests
+export async function GET(request: NextRequest) {
+  return POST(request);
+}
