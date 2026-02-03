@@ -56,8 +56,6 @@ export default async function CompaniesPage() {
     withTimeout(fetchDiscoveredCompanies(), 5000, []),
   ]);
 
-  // Track discovered company tickers
-  const discoveredTickers = new Set(discoveredCompanies.map((c) => c.ticker.toUpperCase()));
 
   // Convert discovered companies to CompanyMapping format
   const discoveredAsMappings: CompanyMapping[] = discoveredCompanies.map((c) => ({
@@ -78,7 +76,6 @@ export default async function CompaniesPage() {
   const sectors = Object.keys(companiesBySector).sort();
 
   const totalCompanies = allCompanies.length;
-  const newlyDiscoveredCount = discoveredCompanies.length;
   const companiesWithMarkets = Object.values(marketCounts).filter((c) => c > 0).length;
   const totalActiveMarkets = Object.values(marketCounts).reduce((a, b) => a + b, 0);
 
@@ -104,7 +101,7 @@ export default async function CompaniesPage() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <Card>
           <CardContent>
             <p className="text-sm text-gray-500">Companies Tracked</p>
@@ -123,14 +120,6 @@ export default async function CompaniesPage() {
             <p className="text-2xl font-bold text-green-600">{totalActiveMarkets}</p>
           </CardContent>
         </Card>
-        {newlyDiscoveredCount > 0 && (
-          <Card>
-            <CardContent>
-              <p className="text-sm text-gray-500">Auto-Discovered</p>
-              <p className="text-2xl font-bold text-purple-600">{newlyDiscoveredCount}</p>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       {/* Companies by Sector */}
@@ -146,7 +135,6 @@ export default async function CompaniesPage() {
                   .sort((a, b) => (marketCounts[b.ticker] || 0) - (marketCounts[a.ticker] || 0))
                   .map((company) => {
                     const count = marketCounts[company.ticker] || 0;
-                    const isDiscovered = discoveredTickers.has(company.ticker.toUpperCase());
                     return (
                       <Link
                         key={company.ticker}
@@ -158,14 +146,7 @@ export default async function CompaniesPage() {
                             <span className="text-gray-700 font-bold text-xs">{company.ticker}</span>
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-gray-900">{company.name}</p>
-                              {isDiscovered && (
-                                <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded font-medium">
-                                  New
-                                </span>
-                              )}
-                            </div>
+                            <p className="font-medium text-gray-900">{company.name}</p>
                             <p className="text-xs text-gray-500">{company.ticker}</p>
                           </div>
                         </div>
