@@ -6,9 +6,9 @@ import { formatCurrency, formatPercentage } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
-import { KeyTakeaways } from '@/components/seo/PageSections';
 import { OrganizationJsonLd } from '@/components/seo/JsonLd';
-import type { MarketDocument } from '@/lib/types';
+import { CompanyOverview } from './CompanyOverview';
+import type { MarketDocument, CompanyAccuracy } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,7 @@ interface PageProps {
   params: Promise<{ ticker: string }>;
 }
 
-async function getCompanyMarkets(ticker: string): Promise<MarketDocument[]> {
+async function getCompanyMarkets(ticker: string): Promise<{ active: MarketDocument[]; resolved: MarketDocument[] }> {
   const [{ fetchPolymarketStockMarkets }, { fetchKalshiStockMarkets }] = await Promise.all([
     import('@/lib/polymarket'),
     import('@/lib/kalshi'),
@@ -26,7 +26,11 @@ async function getCompanyMarkets(ticker: string): Promise<MarketDocument[]> {
     fetchKalshiStockMarkets(),
   ]);
   const allMarkets = [...polymarkets, ...kalshiMarkets];
-  return allMarkets.filter((m) => m.ticker === ticker && m.status === 'active');
+  const companyMarkets = allMarkets.filter((m) => m.ticker === ticker);
+  return {
+    active: companyMarkets.filter((m) => m.status === 'active'),
+    resolved: companyMarkets.filter((m) => m.status === 'resolved'),
+  };
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -34,15 +38,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const company = getCompanyByTicker(ticker.toUpperCase());
   if (!company) return { title: 'Company Not Found' };
 
-  // Check if company has any active markets for noindex decision
-  const activeMarkets = await getCompanyMarkets(ticker.toUpperCase());
-  const hasMarkets = activeMarkets.length > 0;
-
   return {
     title: `${company.name} (${company.ticker}) Prediction Markets`,
     description: `Track prediction markets for ${company.name} (${company.ticker}). See accuracy scores, active markets, and historical performance in the ${company.sector} sector.`,
-    // noindex companies with no active markets
-    robots: hasMarkets ? undefined : { index: false, follow: true },
   };
 }
 
@@ -53,43 +51,21 @@ export default async function CompanyPage({ params }: PageProps) {
 
   if (!company) notFound();
 
-  const [activeMarkets, accuracyMetrics] = await Promise.all([
+  const [markets, accuracyMetrics] = await Promise.all([
     getCompanyMarkets(upperTicker),
     import('@/lib/accuracy-compute').then((m) => m.fetchCachedAccuracyMetrics()),
   ]);
 
+  const { active: activeMarkets, resolved: resolvedMarkets } = markets;
+
   const accuracyData = accuracyMetrics.byCompany.find(
     (c) => c.ticker === upperTicker
-  );
+  ) || null;
 
   // Get related companies in the same sector
   const relatedCompanies = getCompaniesBySector(company.sector)
     .filter((c) => c.ticker !== upperTicker)
     .slice(0, 5);
-
-  // Build key takeaways
-  const takeaways = [];
-  takeaways.push({
-    label: 'Active Markets',
-    value: activeMarkets.length,
-    description: 'open prediction markets',
-  });
-  if (accuracyData) {
-    takeaways.push({
-      label: 'Brier Score',
-      value: accuracyData.averageBrierScore.toFixed(3),
-      description: 'lower is better',
-    });
-    takeaways.push({
-      label: 'Hit Rate',
-      value: formatPercentage(accuracyData.hitRate, 0),
-      description: `across ${accuracyData.resolvedCount} resolved markets`,
-    });
-  }
-  takeaways.push({
-    label: 'Sector',
-    value: company.sector,
-  });
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
@@ -116,8 +92,13 @@ export default async function CompanyPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Key Takeaways */}
-      <KeyTakeaways items={takeaways} />
+      {/* Company Overview - Rich SEO Content */}
+      <CompanyOverview
+        company={company}
+        activeMarketCount={activeMarkets.length}
+        resolvedMarketCount={resolvedMarkets.length}
+        accuracy={accuracyData}
+      />
 
       {/* Accuracy Summary */}
       {accuracyData && (
@@ -206,10 +187,13 @@ export default async function CompanyPage({ params }: PageProps) {
             </CardContent>
           </Card>
 
-          {/* SEO Copy Block */}
+          {/* SEO Copy Block - Additional Context */}
           <Card>
+            <CardHeader>
+              <CardTitle>Understanding {company.ticker} Prediction Markets</CardTitle>
+            </CardHeader>
             <CardContent>
-              <div className="prose prose-sm max-w-none text-gray-600">
+              <div className="prose prose-sm max-w-none text-gray-600 space-y-4">
                 <p>
                   {company.name} ({company.ticker}) is tracked across multiple prediction markets in
                   the {company.sector} sector. Our platform aggregates market data from{' '}
@@ -218,6 +202,23 @@ export default async function CompanyPage({ params }: PageProps) {
                   provide real-time probability estimates for {company.name}-related events
                   including earnings outcomes, stock price targets, and corporate milestones.
                 </p>
+
+                <h4 className="font-semibold text-gray-900">How Prediction Markets Work</h4>
+                <p>
+                  Prediction markets allow traders to buy and sell contracts based on the outcome of future events.
+                  For {company.ticker}, these markets typically focus on quarterly earnings (will the company beat
+                  analyst estimates?), stock price targets (will shares reach a certain price by a specific date?),
+                  and corporate events (product launches, leadership changes, acquisitions).
+                </p>
+
+                <h4 className="font-semibold text-gray-900">Why Track {company.ticker} Markets?</h4>
+                <p>
+                  Prediction markets aggregate information from participants with financial incentives to be accurate.
+                  Research has shown that these markets often outperform traditional forecasting methods, including
+                  analyst consensus estimates. By tracking {company.name} prediction markets, investors and analysts
+                  can gain additional perspective on market sentiment and probability-weighted expectations.
+                </p>
+
                 {accuracyData && (
                   <p>
                     Historical accuracy for {company.name} markets shows a{' '}
@@ -226,6 +227,14 @@ export default async function CompanyPage({ params }: PageProps) {
                     markets, with a hit rate of {formatPercentage(accuracyData.hitRate, 0)}.
                   </p>
                 )}
+
+                <div className="not-prose mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-xs text-gray-400">
+                    Data sourced from Polymarket and Kalshi. Probabilities reflect market consensus, not investment advice.
+                    See our <Link href="/methodology" className="text-blue-600 hover:underline">methodology</Link> for
+                    how we calculate accuracy metrics.
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
