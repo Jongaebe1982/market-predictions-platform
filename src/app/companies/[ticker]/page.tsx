@@ -53,15 +53,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const company = await getCompanyOrFallback(ticker.toUpperCase());
   if (!company) return { title: 'Company Not Found' };
 
-  // Check if company has any active markets for noindex decision
-  const activeMarkets = await getCompanyMarkets(ticker.toUpperCase());
-  const hasMarkets = activeMarkets.length > 0;
-
   return {
     title: `${company.name} (${company.ticker}) Prediction Markets`,
     description: `Track prediction markets for ${company.name} (${company.ticker}). See accuracy scores, active markets, and historical performance in the ${company.sector} sector.`,
-    // noindex companies with no active markets
-    robots: hasMarkets ? undefined : { index: false, follow: true },
   };
 }
 
