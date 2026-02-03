@@ -7,11 +7,11 @@ import { formatCurrency, formatPercentage } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
-import { KeyTakeaways } from '@/components/seo/PageSections';
 import { OrganizationJsonLd } from '@/components/seo/JsonLd';
 import { CompanyStockChart } from './CompanyStockChart';
-import { CompanyAccuracyStats, CompanyAccuracyTakeaways } from './CompanyAccuracyStats';
-import type { MarketDocument } from '@/lib/types';
+import { CompanyAccuracyStats } from './CompanyAccuracyStats';
+import { CompanyOverview } from './CompanyOverview';
+import type { MarketDocument, CompanyAccuracy } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,10 +42,27 @@ async function getAllMarketsCached(): Promise<MarketDocument[]> {
   return allMarkets;
 }
 
-async function getCompanyMarkets(ticker: string): Promise<MarketDocument[]> {
+async function getCompanyMarkets(ticker: string): Promise<{ active: MarketDocument[]; resolved: MarketDocument[] }> {
   const allMarkets = await getAllMarketsCached();
   const upperTicker = ticker.toUpperCase();
-  return allMarkets.filter((m) => m.ticker?.toUpperCase() === upperTicker && m.status === 'active');
+  const companyMarkets = allMarkets.filter((m) => m.ticker?.toUpperCase() === upperTicker);
+  return {
+    active: companyMarkets.filter((m) => m.status === 'active'),
+    resolved: companyMarkets.filter((m) => m.status === 'resolved'),
+  };
+}
+
+async function getCompanyAccuracy(ticker: string): Promise<CompanyAccuracy | null> {
+  try {
+    const { getAdminDb } = await import('@/lib/firebase-admin');
+    const db = getAdminDb();
+    const doc = await db.collection('company-accuracy').doc(ticker.toUpperCase()).get();
+    if (!doc.exists) return null;
+    return doc.data() as CompanyAccuracy;
+  } catch (error) {
+    console.error('Error fetching company accuracy:', error);
+    return null;
+  }
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -67,31 +84,20 @@ export default async function CompanyPage({ params }: PageProps) {
   if (!company) notFound();
 
   // Fetch data in parallel - all fast operations
-  // Accuracy data is loaded client-side for reliability
-  const [activeMarkets, stockPriceHistory] = await Promise.all([
+  const [markets, stockPriceHistory, accuracy] = await Promise.all([
     getCompanyMarkets(upperTicker),
     import('@/lib/yahoo-finance')
       .then((m) => m.fetchStockPriceHistory(upperTicker, 30))
       .catch(() => []), // Don't block page load if stock fetch fails
+    getCompanyAccuracy(upperTicker),
   ]);
+
+  const { active: activeMarkets, resolved: resolvedMarkets } = markets;
 
   // Get related companies in the same sector
   const relatedCompanies = getCompaniesBySector(company.sector)
     .filter((c) => c.ticker !== upperTicker)
     .slice(0, 5);
-
-  // Build key takeaways (accuracy metrics loaded client-side)
-  const takeaways = [
-    {
-      label: 'Active Markets',
-      value: activeMarkets.length,
-      description: 'open prediction markets',
-    },
-    {
-      label: 'Sector',
-      value: company.sector,
-    },
-  ];
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
@@ -118,10 +124,15 @@ export default async function CompanyPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Key Takeaways */}
-      <KeyTakeaways items={takeaways} />
+      {/* Company Overview with rich SEO content */}
+      <CompanyOverview
+        company={company}
+        activeMarketCount={activeMarkets.length}
+        resolvedMarketCount={resolvedMarkets.length}
+        accuracy={accuracy}
+      />
 
-      {/* Accuracy Summary - loaded client-side for reliability */}
+      {/* Accuracy Summary - client-side for real-time updates */}
       <CompanyAccuracyStats ticker={upperTicker} />
 
       {/* Stock Price Chart */}
@@ -184,10 +195,13 @@ export default async function CompanyPage({ params }: PageProps) {
             </CardContent>
           </Card>
 
-          {/* SEO Copy Block */}
+          {/* SEO Copy Block - Additional Context */}
           <Card>
+            <CardHeader>
+              <CardTitle>Understanding {company.ticker} Prediction Markets</CardTitle>
+            </CardHeader>
             <CardContent>
-              <div className="prose prose-sm max-w-none text-gray-600">
+              <div className="prose prose-sm max-w-none text-gray-600 space-y-4">
                 <p>
                   {company.name} ({company.ticker}) is tracked across multiple prediction markets in
                   the {company.sector} sector. Our platform aggregates market data from{' '}
@@ -196,6 +210,30 @@ export default async function CompanyPage({ params }: PageProps) {
                   provide real-time probability estimates for {company.name}-related events
                   including earnings outcomes, stock price targets, and corporate milestones.
                 </p>
+
+                <h4 className="font-semibold text-gray-900">How Prediction Markets Work</h4>
+                <p>
+                  Prediction markets allow traders to buy and sell contracts based on the outcome of future events.
+                  For {company.ticker}, these markets typically focus on quarterly earnings (will the company beat
+                  analyst estimates?), stock price targets (will shares reach a certain price by a specific date?),
+                  and corporate events (product launches, leadership changes, acquisitions).
+                </p>
+
+                <h4 className="font-semibold text-gray-900">Why Track {company.ticker} Markets?</h4>
+                <p>
+                  Prediction markets aggregate information from participants with financial incentives to be accurate.
+                  Research has shown that these markets often outperform traditional forecasting methods, including
+                  analyst consensus estimates. By tracking {company.name} prediction markets, investors and analysts
+                  can gain additional perspective on market sentiment and probability-weighted expectations.
+                </p>
+
+                <div className="not-prose mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-xs text-gray-400">
+                    Data sourced from Polymarket and Kalshi. Probabilities reflect market consensus, not investment advice.
+                    See our <Link href="/methodology" className="text-blue-600 hover:underline">methodology</Link> for
+                    how we calculate accuracy metrics.
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
