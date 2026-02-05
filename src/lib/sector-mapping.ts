@@ -37,6 +37,28 @@ export const COMPANY_MAPPINGS: CompanyMapping[] = [
   { ticker: 'GDDY', name: 'GoDaddy', sector: 'Technology', aliases: ['godaddy'] },
   { ticker: 'GEN', name: 'Gen Digital', sector: 'Technology', aliases: ['gen digital', 'norton', 'lifelock'] },
   { ticker: 'JNPR', name: 'Juniper Networks', sector: 'Technology', aliases: ['juniper'] },
+  { ticker: 'RBLX', name: 'Roblox', sector: 'Technology', aliases: ['roblox'] },
+  { ticker: 'RDDT', name: 'Reddit', sector: 'Technology', aliases: ['reddit'] },
+  { ticker: 'JBL', name: 'Jabil', sector: 'Technology', aliases: ['jabil'] },
+  { ticker: 'FDS', name: 'FactSet Research Systems', sector: 'Technology', aliases: ['factset'] },
+  { ticker: 'PRGS', name: 'Progress Software', sector: 'Technology', aliases: ['progress software'] },
+  { ticker: 'CNXC', name: 'Concentrix', sector: 'Technology', aliases: ['concentrix'] },
+  { ticker: 'MLKN', name: 'MillerKnoll', sector: 'Technology', aliases: ['millerknoll', 'herman miller'] },
+  { ticker: 'NET', name: 'Cloudflare', sector: 'Technology', aliases: ['cloudflare'] },
+  { ticker: 'DDOG', name: 'Datadog', sector: 'Technology', aliases: ['datadog'] },
+  { ticker: 'PINS', name: 'Pinterest', sector: 'Technology', aliases: ['pinterest'] },
+  { ticker: 'DKNG', name: 'DraftKings', sector: 'Technology', aliases: ['draftkings'] },
+  { ticker: 'PTON', name: 'Peloton Interactive', sector: 'Technology', aliases: ['peloton'] },
+  { ticker: 'TOST', name: 'Toast', sector: 'Technology', aliases: ['toast'] },
+  { ticker: 'GRAB', name: 'Grab Holdings', sector: 'Technology', aliases: ['grab'] },
+  { ticker: 'CHGG', name: 'Chegg', sector: 'Technology', aliases: ['chegg'] },
+  { ticker: 'ZI', name: 'ZoomInfo Technologies', sector: 'Technology', aliases: ['zoominfo'] },
+  { ticker: 'APP', name: 'AppLovin', sector: 'Technology', aliases: ['applovin'] },
+  { ticker: 'HUBS', name: 'HubSpot', sector: 'Technology', aliases: ['hubspot'] },
+  { ticker: 'YELP', name: 'Yelp', sector: 'Technology', aliases: ['yelp'] },
+  { ticker: 'WAY', name: 'Waystar', sector: 'Technology', aliases: ['waystar'] },
+  { ticker: 'AMPL', name: 'Amplitude', sector: 'Technology', aliases: ['amplitude'] },
+  { ticker: 'DASH', name: 'DoorDash', sector: 'Technology', aliases: ['doordash'] },
 
   // Semiconductors
   { ticker: 'NVDA', name: 'NVIDIA', sector: 'Semiconductors', aliases: ['nvidia', 'geforce', 'rtx'] },
@@ -57,6 +79,7 @@ export const COMPANY_MAPPINGS: CompanyMapping[] = [
   { ticker: 'SWKS', name: 'Skyworks Solutions', sector: 'Semiconductors', aliases: ['skyworks'] },
   { ticker: 'QRVO', name: 'Qorvo', sector: 'Semiconductors', aliases: ['qorvo'] },
   { ticker: 'ARM', name: 'ARM Holdings', sector: 'Semiconductors', aliases: ['arm'] },
+  { ticker: 'TSEM', name: 'Tower Semiconductor', sector: 'Semiconductors', aliases: ['tower semiconductor'] },
 
   // E-commerce & Internet
   { ticker: 'AMZN', name: 'Amazon', sector: 'E-commerce', aliases: ['amazon', 'aws', 'prime'] },
@@ -75,6 +98,8 @@ export const COMPANY_MAPPINGS: CompanyMapping[] = [
   { ticker: 'ROKU', name: 'Roku', sector: 'Streaming', aliases: ['roku'] },
   { ticker: 'LYV', name: 'Live Nation Entertainment', sector: 'Streaming', aliases: ['live nation', 'ticketmaster'] },
   { ticker: 'FOXA', name: 'Fox Corporation', sector: 'Streaming', aliases: ['fox', 'fox news'] },
+  { ticker: 'DJT', name: 'Trump Media & Technology', sector: 'Streaming', aliases: ['trump media', 'truth social'] },
+  { ticker: 'NWSA', name: 'News Corp', sector: 'Streaming', aliases: ['news corp', 'wall street journal', 'wsj'] },
 
   // Finance - Banks
   { ticker: 'JPM', name: 'JPMorgan Chase', sector: 'Finance', aliases: ['jpmorgan', 'jp morgan', 'chase'] },
@@ -100,6 +125,15 @@ export const COMPANY_MAPPINGS: CompanyMapping[] = [
   { ticker: 'MA', name: 'Mastercard', sector: 'Finance', aliases: ['mastercard'] },
   { ticker: 'AXP', name: 'American Express', sector: 'Finance', aliases: ['american express', 'amex'] },
   { ticker: 'DFS', name: 'Discover Financial', sector: 'Finance', aliases: ['discover'] },
+  { ticker: 'CBOE', name: 'Cboe Global Markets', sector: 'Finance', aliases: ['cboe', 'chicago board options'] },
+  { ticker: 'TW', name: 'Tradeweb Markets', sector: 'Finance', aliases: ['tradeweb'] },
+  { ticker: 'ARES', name: 'Ares Management', sector: 'Finance', aliases: ['ares'] },
+  { ticker: 'APO', name: 'Apollo Global Management', sector: 'Finance', aliases: ['apollo'] },
+  { ticker: 'TPG', name: 'TPG Inc', sector: 'Finance', aliases: ['tpg', 'texas pacific'] },
+  { ticker: 'JEF', name: 'Jefferies Financial Group', sector: 'Finance', aliases: ['jefferies'] },
+  { ticker: 'CASH', name: 'Pathward Financial', sector: 'Finance', aliases: ['pathward', 'meta financial'] },
+  { ticker: 'KKR', name: 'KKR & Co', sector: 'Finance', aliases: ['kkr', 'kohlberg kravis'] },
+  { ticker: 'BGC', name: 'BGC Group', sector: 'Finance', aliases: ['bgc'] },
 
   // Fintech
   { ticker: 'PYPL', name: 'PayPal', sector: 'Fintech', aliases: ['paypal'] },
@@ -110,6 +144,7 @@ export const COMPANY_MAPPINGS: CompanyMapping[] = [
   { ticker: 'COIN', name: 'Coinbase', sector: 'Fintech', aliases: ['coinbase'] },
   { ticker: 'AFRM', name: 'Affirm', sector: 'Fintech', aliases: ['affirm'] },
   { ticker: 'SOFI', name: 'SoFi Technologies', sector: 'Fintech', aliases: ['sofi'] },
+  { ticker: 'HOOD', name: 'Robinhood Markets', sector: 'Fintech', aliases: ['robinhood'] },
 
   // Insurance
   { ticker: 'BRK.B', name: 'Berkshire Hathaway', sector: 'Insurance', aliases: ['berkshire', 'warren buffett'] },
@@ -142,6 +177,7 @@ export const COMPANY_MAPPINGS: CompanyMapping[] = [
   { ticker: 'BIIB', name: 'Biogen', sector: 'Healthcare', aliases: ['biogen'] },
   { ticker: 'MRNA', name: 'Moderna', sector: 'Healthcare', aliases: ['moderna'] },
   { ticker: 'ZTS', name: 'Zoetis', sector: 'Healthcare', aliases: ['zoetis'] },
+  { ticker: 'CRSP', name: 'CRISPR Therapeutics', sector: 'Healthcare', aliases: ['crispr'] },
 
   // Healthcare - Insurance & Services
   { ticker: 'UNH', name: 'UnitedHealth', sector: 'Healthcare', aliases: ['unitedhealth', 'united health', 'optum'] },
@@ -167,6 +203,7 @@ export const COMPANY_MAPPINGS: CompanyMapping[] = [
   { ticker: 'BDX', name: 'Becton Dickinson', sector: 'Healthcare', aliases: ['becton dickinson', 'bd'] },
   { ticker: 'A', name: 'Agilent Technologies', sector: 'Healthcare', aliases: ['agilent'] },
   { ticker: 'IQV', name: 'IQVIA', sector: 'Healthcare', aliases: ['iqvia'] },
+  { ticker: 'LH', name: 'Labcorp', sector: 'Healthcare', aliases: ['labcorp', 'laboratory corporation'] },
   { ticker: 'IDXX', name: 'IDEXX Laboratories', sector: 'Healthcare', aliases: ['idexx'] },
   { ticker: 'DXCM', name: 'DexCom', sector: 'Healthcare', aliases: ['dexcom'] },
   { ticker: 'WAT', name: 'Waters Corporation', sector: 'Healthcare', aliases: ['waters'] },
@@ -188,6 +225,9 @@ export const COMPANY_MAPPINGS: CompanyMapping[] = [
   { ticker: 'BKR', name: 'Baker Hughes', sector: 'Energy', aliases: ['baker hughes'] },
   { ticker: 'FANG', name: 'Diamondback Energy', sector: 'Energy', aliases: ['diamondback'] },
   { ticker: 'PXD', name: 'Pioneer Natural Resources', sector: 'Energy', aliases: ['pioneer'] },
+  { ticker: 'BP', name: 'BP', sector: 'Energy', aliases: ['bp', 'british petroleum'] },
+  { ticker: 'WMB', name: 'Williams Companies', sector: 'Energy', aliases: ['williams'] },
+  { ticker: 'SUN', name: 'Sunoco', sector: 'Energy', aliases: ['sunoco'] },
 
   // Utilities
   { ticker: 'NEE', name: 'NextEra Energy', sector: 'Utilities', aliases: ['nextera'] },
@@ -216,13 +256,17 @@ export const COMPANY_MAPPINGS: CompanyMapping[] = [
   { ticker: 'TSCO', name: 'Tractor Supply', sector: 'Retail', aliases: ['tractor supply'] },
   { ticker: 'KR', name: 'Kroger', sector: 'Retail', aliases: ['kroger'] },
   { ticker: 'SYY', name: 'Sysco', sector: 'Retail', aliases: ['sysco'] },
+  { ticker: 'USFD', name: 'US Foods', sector: 'Retail', aliases: ['us foods'] },
   { ticker: 'TJX', name: 'TJX Companies', sector: 'Retail', aliases: ['tjx', 'tj maxx', 'marshalls'] },
   { ticker: 'ROST', name: 'Ross Stores', sector: 'Retail', aliases: ['ross'] },
   { ticker: 'AZO', name: 'AutoZone', sector: 'Retail', aliases: ['autozone'] },
   { ticker: 'ORLY', name: 'O\'Reilly Automotive', sector: 'Retail', aliases: ['oreilly', 'o\'reilly'] },
   { ticker: 'AAP', name: 'Advance Auto Parts', sector: 'Retail', aliases: ['advance auto'] },
   { ticker: 'KMX', name: 'CarMax', sector: 'Retail', aliases: ['carmax'] },
+  { ticker: 'CVNA', name: 'Carvana', sector: 'Retail', aliases: ['carvana'] },
+  { ticker: 'LZB', name: 'La-Z-Boy', sector: 'Retail', aliases: ['la-z-boy', 'lazboy'] },
   { ticker: 'ULTA', name: 'Ulta Beauty', sector: 'Retail', aliases: ['ulta'] },
+  { ticker: 'GME', name: 'GameStop', sector: 'Retail', aliases: ['gamestop', 'game stop'] },
 
   // Consumer - Food & Beverage
   { ticker: 'KO', name: 'Coca-Cola', sector: 'Consumer', aliases: ['coca-cola', 'coca cola', 'coke'] },
@@ -240,6 +284,7 @@ export const COMPANY_MAPPINGS: CompanyMapping[] = [
   { ticker: 'HRL', name: 'Hormel Foods', sector: 'Consumer', aliases: ['hormel', 'spam'] },
   { ticker: 'ADM', name: 'Archer-Daniels-Midland', sector: 'Consumer', aliases: ['adm', 'archer daniels'] },
   { ticker: 'BG', name: 'Bunge', sector: 'Consumer', aliases: ['bunge'] },
+  { ticker: 'BUD', name: 'Anheuser-Busch InBev', sector: 'Consumer', aliases: ['anheuser', 'budweiser', 'bud light'] },
 
   // Consumer - Restaurants & Food Service
   { ticker: 'MCD', name: 'McDonald\'s', sector: 'Consumer', aliases: ['mcdonald', 'mcdonalds'] },
@@ -249,6 +294,8 @@ export const COMPANY_MAPPINGS: CompanyMapping[] = [
   { ticker: 'DPZ', name: 'Domino\'s Pizza', sector: 'Consumer', aliases: ['dominos', 'domino\'s'] },
   { ticker: 'QSR', name: 'Restaurant Brands', sector: 'Consumer', aliases: ['burger king', 'tim hortons', 'popeyes'] },
   { ticker: 'DRI', name: 'Darden Restaurants', sector: 'Consumer', aliases: ['darden', 'olive garden'] },
+  { ticker: 'WEN', name: "Wendy's", sector: 'Consumer', aliases: ['wendys', "wendy's"] },
+  { ticker: 'WING', name: 'Wingstop', sector: 'Consumer', aliases: ['wingstop'] },
 
   // Consumer - Household & Personal Care
   { ticker: 'PG', name: 'Procter & Gamble', sector: 'Consumer', aliases: ['procter', 'p&g', 'tide', 'gillette'] },
@@ -266,6 +313,7 @@ export const COMPANY_MAPPINGS: CompanyMapping[] = [
   { ticker: 'RL', name: 'Ralph Lauren', sector: 'Consumer', aliases: ['ralph lauren', 'polo'] },
   { ticker: 'TPR', name: 'Tapestry', sector: 'Consumer', aliases: ['tapestry', 'coach', 'kate spade'] },
   { ticker: 'DECK', name: 'Deckers Outdoor', sector: 'Consumer', aliases: ['deckers', 'ugg', 'hoka'] },
+  { ticker: 'UAA', name: 'Under Armour', sector: 'Consumer', aliases: ['under armour'] },
 
   // Automotive
   { ticker: 'TSLA', name: 'Tesla', sector: 'Automotive', aliases: ['tesla', 'elon musk'] },
@@ -276,6 +324,9 @@ export const COMPANY_MAPPINGS: CompanyMapping[] = [
   { ticker: 'APTV', name: 'Aptiv', sector: 'Automotive', aliases: ['aptiv', 'delphi'] },
   { ticker: 'BWA', name: 'BorgWarner', sector: 'Automotive', aliases: ['borgwarner'] },
   { ticker: 'LEA', name: 'Lear Corporation', sector: 'Automotive', aliases: ['lear'] },
+  { ticker: 'HOG', name: 'Harley-Davidson', sector: 'Automotive', aliases: ['harley', 'harley davidson'] },
+  { ticker: 'PAG', name: 'Penske Automotive Group', sector: 'Automotive', aliases: ['penske'] },
+  { ticker: 'GT', name: 'Goodyear Tire & Rubber', sector: 'Automotive', aliases: ['goodyear'] },
 
   // Aerospace & Defense
   { ticker: 'BA', name: 'Boeing', sector: 'Aerospace', aliases: ['boeing'] },
@@ -326,6 +377,10 @@ export const COMPANY_MAPPINGS: CompanyMapping[] = [
   { ticker: 'CCL', name: 'Carnival', sector: 'Travel', aliases: ['carnival'] },
   { ticker: 'RCL', name: 'Royal Caribbean', sector: 'Travel', aliases: ['royal caribbean'] },
   { ticker: 'NCLH', name: 'Norwegian Cruise Line', sector: 'Travel', aliases: ['norwegian cruise'] },
+  { ticker: 'MGM', name: 'MGM Resorts International', sector: 'Travel', aliases: ['mgm', 'mgm resorts'] },
+  { ticker: 'WYNN', name: 'Wynn Resorts', sector: 'Travel', aliases: ['wynn'] },
+  { ticker: 'TRIP', name: 'TripAdvisor', sector: 'Travel', aliases: ['tripadvisor'] },
+  { ticker: 'CZR', name: 'Caesars Entertainment', sector: 'Travel', aliases: ['caesars'] },
 
   // Real Estate
   { ticker: 'AMT', name: 'American Tower', sector: 'Real Estate', aliases: ['american tower'] },
@@ -368,6 +423,7 @@ export const COMPANY_MAPPINGS: CompanyMapping[] = [
   { ticker: 'AME', name: 'AMETEK', sector: 'Industrials', aliases: ['ametek'] },
   { ticker: 'XYL', name: 'Xylem', sector: 'Industrials', aliases: ['xylem'] },
   { ticker: 'IEX', name: 'IDEX Corporation', sector: 'Industrials', aliases: ['idex'] },
+  { ticker: 'ACM', name: 'AECOM', sector: 'Industrials', aliases: ['aecom'] },
 
   // Materials
   { ticker: 'LIN', name: 'Linde', sector: 'Materials', aliases: ['linde'] },
