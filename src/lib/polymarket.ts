@@ -31,8 +31,8 @@ export async function fetchPolymarketStockMarkets(): Promise<MarketDocument[]> {
 
   try {
     const [stocksRes, earningsRes] = await Promise.all([
-      fetch(`${POLYMARKET_GAMMA_API}/markets?tag_id=${TAG_IDS.STOCKS}&closed=false&limit=50`),
-      fetch(`${POLYMARKET_GAMMA_API}/markets?tag_id=${TAG_IDS.EARNINGS}&closed=false&limit=50`),
+      fetch(`${POLYMARKET_GAMMA_API}/markets?tag_id=${TAG_IDS.STOCKS}&closed=false&limit=100`),
+      fetch(`${POLYMARKET_GAMMA_API}/markets?tag_id=${TAG_IDS.EARNINGS}&closed=false&limit=100`),
     ]);
 
     const stocksData: GammaMarket[] = stocksRes.ok ? await stocksRes.json() : [];
