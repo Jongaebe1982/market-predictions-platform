@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { fetchPriceHistory } from '@/lib/polymarket';
+import { extractApiKey, validateApiKey, trackApiKeyUsage } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,9 @@ interface RouteParams {
  * GET /api/v1/markets/:id/history
  * Returns probability snapshots over time for a market
  *
+ * Headers:
+ *   - Authorization: Bearer <api-key>
+ *
  * Query params:
  *   - source: 'clob' | 'snapshots' | 'all' (default: 'all')
  *     - clob: Polymarket CLOB API price history (high fidelity, may be unavailable for old markets)
@@ -20,6 +24,26 @@ interface RouteParams {
  *   - limit: number of data points (default: 500, max: 2000)
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  // Validate API key
+  const key = extractApiKey(request);
+  if (!key) {
+    return NextResponse.json(
+      { error: 'Unauthorized', message: 'API key required. Include header: Authorization: Bearer <your-api-key>' },
+      { status: 401 }
+    );
+  }
+
+  const apiKey = await validateApiKey(key);
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: 'Unauthorized', message: 'Invalid or inactive API key' },
+      { status: 401 }
+    );
+  }
+
+  // Track usage (non-blocking)
+  trackApiKeyUsage(key).catch(() => {});
+
   try {
     const { id } = await params;
     const { searchParams } = new URL(request.url);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { fetchPolymarketStockMarkets, fetchAllPolymarketMarkets } from '@/lib/polymarket';
 import { fetchKalshiStockMarkets } from '@/lib/kalshi';
+import { extractApiKey, validateApiKey, trackApiKeyUsage } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,8 +13,31 @@ interface RouteParams {
 /**
  * GET /api/v1/markets/:id
  * Returns a single market with full details including resolution data if available
+ *
+ * Headers:
+ *   - Authorization: Bearer <api-key>
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  // Validate API key
+  const key = extractApiKey(request);
+  if (!key) {
+    return NextResponse.json(
+      { error: 'Unauthorized', message: 'API key required. Include header: Authorization: Bearer <your-api-key>' },
+      { status: 401 }
+    );
+  }
+
+  const apiKey = await validateApiKey(key);
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: 'Unauthorized', message: 'Invalid or inactive API key' },
+      { status: 401 }
+    );
+  }
+
+  // Track usage (non-blocking)
+  trackApiKeyUsage(key).catch(() => {});
+
   try {
     const { id } = await params;
 

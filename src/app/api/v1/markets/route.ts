@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchPolymarketStockMarkets } from '@/lib/polymarket';
 import { fetchKalshiStockMarkets } from '@/lib/kalshi';
+import { extractApiKey, validateApiKey, trackApiKeyUsage } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/v1/markets
  * Returns all active and resolved markets with metadata
+ *
+ * Headers:
+ *   - Authorization: Bearer <api-key>
  *
  * Query params:
  *   - status: 'active' | 'resolved' | 'all' (default: 'all')
@@ -16,6 +20,26 @@ export const dynamic = 'force-dynamic';
  *   - offset: pagination offset (default: 0)
  */
 export async function GET(request: NextRequest) {
+  // Validate API key
+  const key = extractApiKey(request);
+  if (!key) {
+    return NextResponse.json(
+      { error: 'Unauthorized', message: 'API key required. Include header: Authorization: Bearer <your-api-key>' },
+      { status: 401 }
+    );
+  }
+
+  const apiKey = await validateApiKey(key);
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: 'Unauthorized', message: 'Invalid or inactive API key' },
+      { status: 401 }
+    );
+  }
+
+  // Track usage (non-blocking)
+  trackApiKeyUsage(key).catch(() => {});
+
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'all';

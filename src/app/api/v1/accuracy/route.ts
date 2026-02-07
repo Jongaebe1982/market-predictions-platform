@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchCachedAccuracyMetrics } from '@/lib/accuracy-compute';
+import { extractApiKey, validateApiKey, trackApiKeyUsage } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,10 +8,33 @@ export const dynamic = 'force-dynamic';
  * GET /api/v1/accuracy
  * Returns overall accuracy metrics including Brier scores and hit rates
  *
+ * Headers:
+ *   - Authorization: Bearer <api-key>
+ *
  * Query params:
  *   - breakdown: 'source' | 'sector' | 'horizon' | 'volume' | 'all' (default: 'all')
  */
 export async function GET(request: NextRequest) {
+  // Validate API key
+  const key = extractApiKey(request);
+  if (!key) {
+    return NextResponse.json(
+      { error: 'Unauthorized', message: 'API key required. Include header: Authorization: Bearer <your-api-key>' },
+      { status: 401 }
+    );
+  }
+
+  const apiKey = await validateApiKey(key);
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: 'Unauthorized', message: 'Invalid or inactive API key' },
+      { status: 401 }
+    );
+  }
+
+  // Track usage (non-blocking)
+  trackApiKeyUsage(key).catch(() => {});
+
   try {
     const { searchParams } = new URL(request.url);
     const breakdown = searchParams.get('breakdown') || 'all';
