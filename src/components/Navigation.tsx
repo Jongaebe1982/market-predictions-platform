@@ -46,15 +46,15 @@ export function Navigation() {
                 </Link>
               ))}
               <Link
-                href="/coming-soon"
+                href="/developers"
                 className={cn(
                   'text-xs border rounded px-1.5 py-0.5 transition-colors',
-                  pathname === '/coming-soon'
-                    ? 'text-purple-600 border-purple-300 bg-purple-50'
-                    : 'text-gray-400 border-gray-200 hover:text-purple-600 hover:border-purple-300'
+                  pathname === '/developers' || pathname.startsWith('/developers/')
+                    ? 'text-green-600 border-green-300 bg-green-50'
+                    : 'text-gray-400 border-gray-200 hover:text-green-600 hover:border-green-300'
                 )}
               >
-                Coming Soon
+                API
               </Link>
             </nav>
           </div>
@@ -81,15 +81,15 @@ export function Navigation() {
           </Link>
         ))}
         <Link
-          href="/coming-soon"
+          href="/developers"
           className={cn(
             'text-xs border rounded px-1.5 py-0.5 whitespace-nowrap transition-colors',
-            pathname === '/coming-soon'
-              ? 'text-purple-600 border-purple-300 bg-purple-50'
+            pathname === '/developers' || pathname.startsWith('/developers/')
+              ? 'text-green-600 border-green-300 bg-green-50'
               : 'text-gray-400 border-gray-200'
           )}
         >
-          Coming Soon
+          API
         </Link>
       </nav>
     </header>
