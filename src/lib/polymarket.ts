@@ -219,8 +219,9 @@ export interface ResolvedMarketInfo {
 /**
  * Fetch a paginated set of closed markets for a given tag.
  * Polymarket gamma API supports offset-based pagination.
+ * Note: API doesn't sort by date, so we need to fetch all pages to get recent markets.
  */
-async function fetchClosedMarketsByTag(tagId: string, maxPages: number = 3): Promise<GammaMarket[]> {
+async function fetchClosedMarketsByTag(tagId: string, maxPages: number = 6): Promise<GammaMarket[]> {
   const pageSize = 100;
   const all: GammaMarket[] = [];
 
