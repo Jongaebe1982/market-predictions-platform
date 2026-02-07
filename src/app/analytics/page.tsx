@@ -20,12 +20,19 @@ export default async function AccuracyPage() {
   // Compute real metrics from live API + Firestore (cached for 1 hour)
   const metrics = await computeRealAccuracyMetrics();
 
+  // Find which horizon is actually being used for the overall score
+  const preferenceOrder = ['30d', '14d', '7d', '1d', '12h'] as const;
+  const usedHorizon = metrics.byHorizon.find(
+    (h) => preferenceOrder.includes(h.horizon as typeof preferenceOrder[number]) && h.sampleSize > 0
+  );
+  const horizonLabel = usedHorizon?.label || 'best available';
+
   // Build key takeaways with actual numbers
   const takeaways = [
     {
       label: 'Average Brier Score',
       value: metrics.overall.averageBrierScore.toFixed(3),
-      description: 'at 1-month horizon (lower is better)',
+      description: `at ${horizonLabel.toLowerCase()} horizon (lower is better)`,
     },
     {
       label: 'Hit Rate',
@@ -35,7 +42,7 @@ export default async function AccuracyPage() {
     {
       label: 'Markets Scored',
       value: metrics.overall.totalResolved,
-      description: 'resolved with price history',
+      description: 'resolved markets analyzed',
     },
     {
       label: 'Markets Tracked',
@@ -96,10 +103,10 @@ export default async function AccuracyPage() {
               <h4 className="font-semibold text-gray-900 mb-1">How we measure</h4>
               <p>
                 For each resolved market, we take the market&apos;s probability at <strong>1 month,
-                2 weeks, 1 week, 24 hours, and 12 hours before close</strong> (or the earliest
-                available snapshot if the market existed for less than 30 days) and compare it to
-                the actual outcome. This gives a meaningful accuracy measure — not the trivial
-                ~100% probability at market close when the answer is already known.
+                2 weeks, 1 week, 24 hours, and 12 hours before close</strong> and compare it to
+                the actual outcome. The headline Brier score uses the earliest available horizon
+                with data. For recently tracked markets, this is typically 12 hours or 1 day.
+                Over time, as we accumulate more historical data, longer horizons will become available.
               </p>
             </div>
             <div>
@@ -124,14 +131,14 @@ export default async function AccuracyPage() {
               <div>
                 <h4 className="font-semibold text-gray-900 mb-1">Brier Score</h4>
                 <p className="text-xs">
-                  (prediction - outcome)&sup2;. Measures how far the 1-month prediction was from what
+                  (prediction - outcome)&sup2;. Measures how far the prediction was from what
                   actually happened. Lower is better.
                 </p>
               </div>
               <div>
                 <h4 className="font-semibold text-gray-900 mb-1">Hit Rate</h4>
                 <p className="text-xs">
-                  Percentage of markets where the 1-month prediction (&gt;50%) matched the actual outcome.
+                  Percentage of markets where the prediction (&gt;50%) matched the actual outcome.
                   Directional accuracy.
                 </p>
               </div>
@@ -161,7 +168,7 @@ export default async function AccuracyPage() {
             <p className="text-3xl font-bold text-gray-900">
               {metrics.overall.averageBrierScore.toFixed(3)}
             </p>
-            <p className="text-xs text-gray-400 mt-1">At 1-month horizon (lower = better)</p>
+            <p className="text-xs text-gray-400 mt-1">At {horizonLabel.toLowerCase()} horizon (lower = better)</p>
           </CardContent>
         </Card>
         <Card>
@@ -179,7 +186,7 @@ export default async function AccuracyPage() {
             <p className="text-3xl font-bold text-gray-900">
               {metrics.overall.totalResolved}
             </p>
-            <p className="text-xs text-gray-400 mt-1">Resolved with price history</p>
+            <p className="text-xs text-gray-400 mt-1">Resolved markets analyzed</p>
           </CardContent>
         </Card>
         <Card>
@@ -201,8 +208,9 @@ export default async function AccuracyPage() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-600 mb-4">
-            How prediction accuracy changes at different lead times. The headline Brier score above uses
-            the earliest available horizon (1 month preferred). This table shows all horizons for comparison.
+            How prediction accuracy changes at different lead times. The headline Brier score uses
+            the earliest available horizon with data (currently {horizonLabel.toLowerCase()}). Markets become more
+            accurate as the event approaches.
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

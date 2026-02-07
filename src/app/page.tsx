@@ -235,7 +235,7 @@ export default async function HomePage() {
                 className="p-3 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 transition-colors text-center"
               >
                 <p className="font-medium text-gray-900">All Companies</p>
-                <p className="text-xs text-gray-500 mt-1">65+ tracked</p>
+                <p className="text-xs text-gray-500 mt-1">View all</p>
               </Link>
               <Link
                 href="/analytics"
