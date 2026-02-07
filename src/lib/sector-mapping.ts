@@ -135,6 +135,10 @@ export const COMPANY_MAPPINGS: CompanyMapping[] = [
   { ticker: 'KKR', name: 'KKR & Co', sector: 'Finance', aliases: ['kkr', 'kohlberg kravis'] },
   { ticker: 'BGC', name: 'BGC Group', sector: 'Finance', aliases: ['bgc'] },
 
+  // Crypto
+  { ticker: 'BTC-USD', name: 'Bitcoin', sector: 'Crypto', aliases: ['bitcoin', 'btc'] },
+  { ticker: 'ETH-USD', name: 'Ethereum', sector: 'Crypto', aliases: ['ethereum', 'eth', 'ether'] },
+
   // Fintech
   { ticker: 'PYPL', name: 'PayPal', sector: 'Fintech', aliases: ['paypal'] },
   { ticker: 'SQ', name: 'Block', sector: 'Fintech', aliases: ['block', 'square', 'cash app'] },
