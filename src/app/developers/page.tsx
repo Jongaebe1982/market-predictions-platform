@@ -64,45 +64,47 @@ export default function DevelopersPage() {
         </CardContent>
       </Card>
 
-      {/* Pricing Tiers */}
+      {/* Pricing */}
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>Pricing</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 border border-gray-200 rounded-lg">
-              <h3 className="font-semibold text-gray-900">Free</h3>
-              <p className="text-2xl font-bold text-gray-900 mt-2">$0<span className="text-sm font-normal text-gray-500">/mo</span></p>
+          <div className="max-w-md mx-auto">
+            <div className="p-6 border-2 border-blue-500 rounded-lg relative">
+              <span className="absolute -top-2 left-4 bg-blue-500 text-white text-xs px-2 py-0.5 rounded">Standard</span>
+              <p className="text-3xl font-bold text-gray-900 mt-2">$49.99<span className="text-sm font-normal text-gray-500">/mo</span></p>
               <ul className="mt-4 space-y-2 text-sm text-gray-600">
-                <li>100 requests/day</li>
-                <li>All endpoints</li>
-                <li>Community support</li>
+                <li className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  10,000 requests/day
+                </li>
+                <li className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  All endpoints included
+                </li>
+                <li className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Email support
+                </li>
+                <li className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Cancel anytime
+                </li>
               </ul>
             </div>
-            <div className="p-4 border-2 border-blue-500 rounded-lg relative">
-              <span className="absolute -top-2 left-4 bg-blue-500 text-white text-xs px-2 py-0.5 rounded">Popular</span>
-              <h3 className="font-semibold text-gray-900">Developer</h3>
-              <p className="text-2xl font-bold text-gray-900 mt-2">$29<span className="text-sm font-normal text-gray-500">/mo</span></p>
-              <ul className="mt-4 space-y-2 text-sm text-gray-600">
-                <li>10,000 requests/day</li>
-                <li>All endpoints</li>
-                <li>Email support</li>
-              </ul>
-            </div>
-            <div className="p-4 border border-gray-200 rounded-lg">
-              <h3 className="font-semibold text-gray-900">Professional</h3>
-              <p className="text-2xl font-bold text-gray-900 mt-2">$99<span className="text-sm font-normal text-gray-500">/mo</span></p>
-              <ul className="mt-4 space-y-2 text-sm text-gray-600">
-                <li>100,000 requests/day</li>
-                <li>All endpoints</li>
-                <li>Priority support</li>
-              </ul>
-            </div>
+            <p className="text-xs text-gray-500 mt-4 text-center">
+              Need higher limits? <a href="mailto:support@predictionmarketanalytics.io" className="text-blue-600 hover:underline">Contact us</a> for enterprise pricing.
+            </p>
           </div>
-          <p className="text-xs text-gray-500 mt-4">
-            Paid plans coming soon. Sign up for free to get started.
-          </p>
         </CardContent>
       </Card>
 

@@ -23,9 +23,9 @@ export interface RateLimitResult {
 }
 
 const TIER_LIMITS: Record<string, number> = {
-  free: 100,
-  developer: 10000,
-  professional: 100000,
+  free: 100,           // Admin/internal use only
+  standard: 10000,     // $49.99/mo
+  enterprise: 100000,  // $129.99/mo (future)
 };
 
 /**
@@ -135,7 +135,7 @@ export async function trackApiKeyUsage(key: string): Promise<void> {
 export async function generateApiKey(
   email: string,
   name: string,
-  tier: 'free' | 'developer' | 'professional' = 'free'
+  tier: 'free' | 'standard' | 'enterprise' = 'standard'
 ): Promise<string> {
   const key = `pm_${randomUUID().replace(/-/g, '')}`;
   const db = getAdminDb();

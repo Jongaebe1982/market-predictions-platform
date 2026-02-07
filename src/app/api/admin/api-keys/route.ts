@@ -75,9 +75,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!['free', 'developer', 'professional'].includes(tier)) {
+    if (!['free', 'standard', 'enterprise'].includes(tier)) {
       return NextResponse.json(
-        { error: 'Invalid tier. Must be: free, developer, or professional' },
+        { error: 'Invalid tier. Must be: free, standard, or enterprise' },
         { status: 400 }
       );
     }
