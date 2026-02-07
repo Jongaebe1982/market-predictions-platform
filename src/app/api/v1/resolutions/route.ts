@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { extractApiKey, validateApiKey, trackApiKeyUsage } from '@/lib/api-auth';
+import { extractApiKey, validateApiKey, trackApiKeyUsage, checkRateLimit, addRateLimitHeaders } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +36,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { error: 'Unauthorized', message: 'Invalid or inactive API key' },
       { status: 401 }
+    );
+  }
+
+  // Check rate limit
+  const rateLimit = await checkRateLimit(key, apiKey.tier);
+  if (!rateLimit.allowed) {
+    return addRateLimitHeaders(
+      NextResponse.json(
+        {
+          error: 'Rate limit exceeded',
+          message: `Daily limit of ${rateLimit.limit} requests exceeded. Resets at ${rateLimit.resetAt}`,
+        },
+        { status: 429 }
+      ),
+      rateLimit
     );
   }
 
