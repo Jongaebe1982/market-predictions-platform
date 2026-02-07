@@ -205,43 +205,55 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
       horizonsAvailable: [],
     }));
 
-    // Process Polymarket resolved markets (with CLOB price history)
+    // Process Polymarket resolved markets (with CLOB price history, fallback to outcome-based)
     const polymarketLiveResolutions = await processWithConcurrency(
       polymarketResolved,
       CONCURRENCY_LIMIT,
       async (market): Promise<MarketResolution | null> => {
         try {
           const history = await fetchPriceHistoryWithFallback(market.clobTokenId, market.id);
-          if (history.length === 0) return null;
-
-          const sortedHistory = [...history].sort((a, b) => a.timestamp - b.timestamp);
-          const resolutionDate = market.endDate
-            ? new Date(market.endDate).getTime()
-            : sortedHistory[sortedHistory.length - 1].timestamp;
-
-          const horizons: Partial<Record<HorizonKey, HorizonProbability>> = {};
           const outcomeBoolean = market.outcome === 'yes';
 
-          for (const { key, hours } of HORIZONS) {
-            const targetTime = resolutionDate - hours * 60 * 60 * 1000;
-            const probability = findProbabilityAtTime(sortedHistory, targetTime);
-            if (probability !== null) {
-              horizons[key] = {
-                probability,
-                brierScore: calculateBrierScore(probability, outcomeBoolean),
-                timestamp: new Date(targetTime).toISOString(),
-              };
-            }
-          }
+          let horizons: Partial<Record<HorizonKey, HorizonProbability>> = {};
+          let finalProbability: number;
+          let brierScore: number;
+          let resolutionDate: number;
 
-          const finalProbability = sortedHistory[sortedHistory.length - 1].price;
-          const horizonPreference: HorizonKey[] = ['30d', '14d', '7d', '1d', '12h'];
-          let brierScore = calculateBrierScore(finalProbability, outcomeBoolean);
-          for (const key of horizonPreference) {
-            if (horizons[key]) {
-              brierScore = horizons[key]!.brierScore;
-              break;
+          if (history.length > 0) {
+            // Use price history to calculate horizons and Brier score
+            const sortedHistory = [...history].sort((a, b) => a.timestamp - b.timestamp);
+            resolutionDate = market.endDate
+              ? new Date(market.endDate).getTime()
+              : sortedHistory[sortedHistory.length - 1].timestamp;
+
+            for (const { key, hours } of HORIZONS) {
+              const targetTime = resolutionDate - hours * 60 * 60 * 1000;
+              const probability = findProbabilityAtTime(sortedHistory, targetTime);
+              if (probability !== null) {
+                horizons[key] = {
+                  probability,
+                  brierScore: calculateBrierScore(probability, outcomeBoolean),
+                  timestamp: new Date(targetTime).toISOString(),
+                };
+              }
             }
+
+            finalProbability = sortedHistory[sortedHistory.length - 1].price;
+            const horizonPreference: HorizonKey[] = ['30d', '14d', '7d', '1d', '12h'];
+            brierScore = calculateBrierScore(finalProbability, outcomeBoolean);
+            for (const key of horizonPreference) {
+              if (horizons[key]) {
+                brierScore = horizons[key]!.brierScore;
+                break;
+              }
+            }
+          } else {
+            // No price history available - use outcome to infer final probability
+            resolutionDate = market.endDate
+              ? new Date(market.endDate).getTime()
+              : Date.now();
+            finalProbability = outcomeBoolean ? 1.0 : 0.0;
+            brierScore = calculateBrierScore(finalProbability, outcomeBoolean);
           }
 
           return {

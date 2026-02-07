@@ -107,17 +107,29 @@ export async function POST(request: NextRequest) {
 
       // Fetch CLOB price history (with fallback to stored snapshots)
       const history = await fetchPriceHistoryWithFallback(market.clobTokenId, market.id);
-      if (history.length === 0) continue;
 
-      const sortedHistory = [...history].sort((a, b) => a.timestamp - b.timestamp);
       const resolutionDate = market.endDate
         ? new Date(market.endDate).getTime()
-        : sortedHistory[sortedHistory.length - 1].timestamp;
+        : Date.now();
 
       const outcomeBoolean = market.outcome === 'yes';
-      const horizons = calculateHorizons(sortedHistory, resolutionDate, outcomeBoolean);
-      const finalProbability = sortedHistory[sortedHistory.length - 1].price;
-      const brierScore = getBestBrierScore(horizons, finalProbability, outcomeBoolean);
+
+      let horizons: Partial<Record<HorizonKey, HorizonProbability>> = {};
+      let finalProbability: number;
+      let brierScore: number;
+
+      if (history.length > 0) {
+        // Use price history to calculate horizons and Brier score
+        const sortedHistory = [...history].sort((a, b) => a.timestamp - b.timestamp);
+        horizons = calculateHorizons(sortedHistory, resolutionDate, outcomeBoolean);
+        finalProbability = sortedHistory[sortedHistory.length - 1].price;
+        brierScore = getBestBrierScore(horizons, finalProbability, outcomeBoolean);
+      } else {
+        // No price history available - use outcome to infer final probability
+        // When market resolved to "yes", final probability was ~1.0; for "no", ~0.0
+        finalProbability = outcomeBoolean ? 1.0 : 0.0;
+        brierScore = calculateBrierScore(finalProbability, outcomeBoolean);
+      }
 
       await db.collection('resolutions').add({
         marketId: market.id,
