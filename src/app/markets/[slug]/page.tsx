@@ -63,7 +63,53 @@ async function getMarketBySlug(slug: string): Promise<MarketDocument | null> {
     fetchAllKalshiMarkets(),
   ]);
   const allMarkets = [...polymarkets, ...kalshiMarkets];
-  return allMarkets.find((m) => m.slug === slug) || null;
+  const market = allMarkets.find((m) => m.slug === slug);
+
+  if (market) return market;
+
+  // Fallback: Check Firestore resolutions for older resolved markets
+  try {
+    const db = getAdminDb();
+    const resolutionsSnapshot = await db
+      .collection('resolutions')
+      .where('slug', '==', slug)
+      .limit(1)
+      .get();
+
+    if (!resolutionsSnapshot.empty) {
+      const data = resolutionsSnapshot.docs[0].data();
+      // Reconstruct a minimal MarketDocument from resolution data
+      return {
+        id: data.marketId || resolutionsSnapshot.docs[0].id,
+        slug: data.slug,
+        question: data.question || slug,
+        description: data.description || '',
+        source: data.source || 'polymarket',
+        sourceId: data.sourceId || data.marketId || '',
+        sector: data.sector || 'Technology',
+        ticker: data.ticker || null,
+        companyName: data.companyName || null,
+        outcomes: [
+          { name: 'Yes', probability: data.outcome === 'yes' ? 1 : 0 },
+          { name: 'No', probability: data.outcome === 'no' ? 1 : 0 },
+        ],
+        volume: data.volume || 0,
+        liquidity: 0,
+        startDate: data.startDate || '',
+        endDate: data.resolvedAt || null,
+        resolvedAt: data.resolvedAt || null,
+        resolution: data.outcome || null,
+        status: 'resolved',
+        tags: data.tags || ['earnings'],
+        createdAt: data.createdAt || '',
+        updatedAt: data.updatedAt || '',
+      } as MarketDocument;
+    }
+  } catch (error) {
+    console.error('Firestore market lookup error:', error);
+  }
+
+  return null;
 }
 
 // Fetch pre-generated market content from Firestore
@@ -172,8 +218,14 @@ async function getMarketData(slug: string): Promise<{
     fetchAllKalshiMarkets(),
   ]);
   const allMarkets = [...polymarkets, ...kalshiMarkets];
-  const market = allMarkets.find((m) => m.slug === slug);
-  if (!market) return null;
+  let market: MarketDocument | undefined = allMarkets.find((m) => m.slug === slug);
+
+  // Fallback: Check Firestore resolutions for older resolved markets
+  if (!market) {
+    const fallbackMarket = await getMarketBySlug(slug);
+    if (!fallbackMarket) return null;
+    market = fallbackMarket;
+  }
 
   // Fetch resolution data if market is resolved, and pre-generated content
   const [resolution, marketContent] = await Promise.all([
