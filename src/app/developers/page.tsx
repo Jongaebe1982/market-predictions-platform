@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { DeveloperSignupForm } from './DeveloperSignupForm';
 
@@ -9,6 +10,10 @@ export const metadata: Metadata = {
 };
 
 export default function DevelopersPage() {
+  // Redirect to home if API feature is disabled
+  if (process.env.NEXT_PUBLIC_SHOW_API_TAB !== 'true') {
+    redirect('/');
+  }
   return (
     <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb */}

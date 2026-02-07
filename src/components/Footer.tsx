@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+const showApiTab = process.env.NEXT_PUBLIC_SHOW_API_TAB === 'true';
+
 export function Footer() {
   return (
     <footer className="border-t border-gray-200 bg-gray-50 mt-auto">
@@ -34,7 +36,9 @@ export function Footer() {
           <div>
             <h4 className="font-medium text-gray-900 text-sm mb-3">Resources</h4>
             <ul className="space-y-2">
-              <li><Link href="/developers" className="text-sm text-gray-500 hover:text-gray-700">Developer API</Link></li>
+              {showApiTab && (
+                <li><Link href="/developers" className="text-sm text-gray-500 hover:text-gray-700">Developer API</Link></li>
+              )}
               <li><Link href="/methodology" className="text-sm text-gray-500 hover:text-gray-700">Methodology</Link></li>
               <li><Link href="/glossary" className="text-sm text-gray-500 hover:text-gray-700">Glossary</Link></li>
               <li><Link href="/about" className="text-sm text-gray-500 hover:text-gray-700">About</Link></li>

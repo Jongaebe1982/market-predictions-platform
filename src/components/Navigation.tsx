@@ -13,6 +13,9 @@ const navLinks = [
   { href: '/about', label: 'About' },
 ];
 
+// Check if API tab should be shown (set via env var)
+const showApiTab = process.env.NEXT_PUBLIC_SHOW_API_TAB === 'true';
+
 export function Navigation() {
   const pathname = usePathname();
 
@@ -45,17 +48,19 @@ export function Navigation() {
                   {link.label}
                 </Link>
               ))}
-              <Link
-                href="/developers"
-                className={cn(
-                  'text-xs border rounded px-1.5 py-0.5 transition-colors',
-                  pathname === '/developers' || pathname.startsWith('/developers/')
-                    ? 'text-green-600 border-green-300 bg-green-50'
-                    : 'text-gray-400 border-gray-200 hover:text-green-600 hover:border-green-300'
-                )}
-              >
-                API
-              </Link>
+              {showApiTab && (
+                <Link
+                  href="/developers"
+                  className={cn(
+                    'text-xs border rounded px-1.5 py-0.5 transition-colors',
+                    pathname === '/developers' || pathname.startsWith('/developers/')
+                      ? 'text-green-600 border-green-300 bg-green-50'
+                      : 'text-gray-400 border-gray-200 hover:text-green-600 hover:border-green-300'
+                  )}
+                >
+                  API
+                </Link>
+              )}
             </nav>
           </div>
           <div className="flex items-center gap-4">
@@ -80,17 +85,19 @@ export function Navigation() {
             {link.label}
           </Link>
         ))}
-        <Link
-          href="/developers"
-          className={cn(
-            'text-xs border rounded px-1.5 py-0.5 whitespace-nowrap transition-colors',
-            pathname === '/developers' || pathname.startsWith('/developers/')
-              ? 'text-green-600 border-green-300 bg-green-50'
-              : 'text-gray-400 border-gray-200'
-          )}
-        >
-          API
-        </Link>
+        {showApiTab && (
+          <Link
+            href="/developers"
+            className={cn(
+              'text-xs border rounded px-1.5 py-0.5 whitespace-nowrap transition-colors',
+              pathname === '/developers' || pathname.startsWith('/developers/')
+                ? 'text-green-600 border-green-300 bg-green-50'
+                : 'text-gray-400 border-gray-200'
+            )}
+          >
+            API
+          </Link>
+        )}
       </nav>
     </header>
   );
