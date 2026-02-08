@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 type CheckoutState = 'loading' | 'ready' | 'redirecting' | 'error' | 'canceled';
+type BillingPeriod = 'monthly' | 'annual';
 
 export function CheckoutClient() {
   const searchParams = useSearchParams();
@@ -12,6 +13,7 @@ export function CheckoutClient() {
 
   const [state, setState] = useState<CheckoutState>(canceled ? 'canceled' : 'loading');
   const [error, setError] = useState('');
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
 
   useEffect(() => {
     if (!token) {
@@ -37,7 +39,7 @@ export function CheckoutClient() {
       const res = await fetch('/api/developer/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, billingPeriod }),
       });
 
       const data = await res.json();
@@ -125,27 +127,68 @@ export function CheckoutClient() {
       </div>
 
       <h2 className="text-lg font-semibold text-gray-900 mb-2">Email Verified!</h2>
-      <p className="text-gray-600 mb-6">
-        Complete your purchase to get your API key.
+      <p className="text-gray-600 mb-4">
+        Choose your billing plan to get started.
       </p>
 
-      <div className="bg-gray-50 rounded-lg p-4 mb-6">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-gray-600">Standard API Plan</span>
-          <span className="font-semibold text-gray-900">$49.99/mo</span>
-        </div>
-        <ul className="text-sm text-gray-500 text-left space-y-1">
-          <li>• 10,000 requests/day</li>
-          <li>• All endpoints included</li>
-          <li>• Cancel anytime</li>
-        </ul>
+      <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+        <p className="text-green-800 text-sm font-medium">7-day free trial included</p>
+        <p className="text-green-600 text-xs">You won&apos;t be charged until your trial ends</p>
       </div>
+
+      {/* Billing toggle */}
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => setBillingPeriod('monthly')}
+          className={`flex-1 py-3 px-4 rounded-lg border-2 transition-colors ${
+            billingPeriod === 'monthly'
+              ? 'border-blue-500 bg-blue-50'
+              : 'border-gray-200 hover:border-gray-300'
+          }`}
+        >
+          <p className="font-semibold text-gray-900">Monthly</p>
+          <p className="text-lg font-bold text-gray-900">$49.99<span className="text-sm font-normal text-gray-500">/mo</span></p>
+        </button>
+        <button
+          onClick={() => setBillingPeriod('annual')}
+          className={`flex-1 py-3 px-4 rounded-lg border-2 transition-colors relative ${
+            billingPeriod === 'annual'
+              ? 'border-blue-500 bg-blue-50'
+              : 'border-gray-200 hover:border-gray-300'
+          }`}
+        >
+          <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-green-500 text-white text-xs px-2 py-0.5 rounded">Save 17%</span>
+          <p className="font-semibold text-gray-900">Annual</p>
+          <p className="text-lg font-bold text-gray-900">$499.99<span className="text-sm font-normal text-gray-500">/yr</span></p>
+        </button>
+      </div>
+
+      <ul className="text-sm text-gray-500 text-left space-y-1 mb-6">
+        <li className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          10,000 requests/day
+        </li>
+        <li className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          All endpoints included
+        </li>
+        <li className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          Cancel anytime
+        </li>
+      </ul>
 
       <button
         onClick={handleCheckout}
         className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
       >
-        Continue to Payment
+        Start Free Trial
       </button>
 
       <p className="text-xs text-gray-500 mt-4">

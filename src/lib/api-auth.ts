@@ -7,12 +7,13 @@ export interface ApiKey {
   key: string;
   email: string;
   name: string;
-  tier: 'free' | 'developer' | 'professional';
+  tier: 'free' | 'standard' | 'enterprise';
   active: boolean;
   createdAt: string;
   lastUsedAt: string | null;
   requestCount: number;
   dailyLimit: number;
+  expiresAt: string | null; // ISO date string, null = never expires
 }
 
 export interface RateLimitResult {
@@ -23,10 +24,13 @@ export interface RateLimitResult {
 }
 
 const TIER_LIMITS: Record<string, number> = {
-  free: 100,           // Admin/internal use only
-  standard: 10000,     // $49.99/mo
+  free: 10,            // Limited trial - 14 day expiry
+  standard: 10000,     // $49.99/mo or $499.99/yr
   enterprise: 100000,  // $129.99/mo (future)
 };
+
+// Free tier expires after 14 days
+const FREE_TIER_EXPIRY_DAYS = 14;
 
 /**
  * Get today's date string for rate limit keys (YYYY-MM-DD in UTC)
@@ -59,6 +63,11 @@ export async function validateApiKey(key: string): Promise<ApiKey | null> {
 
     const data = doc.data() as Omit<ApiKey, 'key'>;
     if (!data.active) return null;
+
+    // Check if key has expired (for free tier)
+    if (data.expiresAt && new Date(data.expiresAt) < new Date()) {
+      return null;
+    }
 
     return { key, ...data };
   } catch (error) {
@@ -140,6 +149,14 @@ export async function generateApiKey(
   const key = `pm_${randomUUID().replace(/-/g, '')}`;
   const db = getAdminDb();
 
+  // Free tier keys expire after 14 days
+  let expiresAt: string | null = null;
+  if (tier === 'free') {
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + FREE_TIER_EXPIRY_DAYS);
+    expiresAt = expiry.toISOString();
+  }
+
   await db.collection('api-keys').doc(key).set({
     email,
     name,
@@ -149,6 +166,7 @@ export async function generateApiKey(
     lastUsedAt: null,
     requestCount: 0,
     dailyLimit: TIER_LIMITS[tier],
+    expiresAt,
   });
 
   return key;

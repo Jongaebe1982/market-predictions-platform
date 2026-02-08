@@ -3,6 +3,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import Stripe from 'stripe';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://predictionmarketanalytics.io';
+const TRIAL_DAYS = 7;
 
 function getStripe(): Stripe | null {
   if (!process.env.STRIPE_SECRET_KEY) {
@@ -18,7 +19,7 @@ function getStripe(): Stripe | null {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { token } = body;
+    const { token, billingPeriod = 'monthly' } = body;
 
     if (!token) {
       return NextResponse.json(
@@ -35,7 +36,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const priceId = process.env.STRIPE_STANDARD_PRICE_ID;
+    // Get the appropriate price ID based on billing period
+    const priceId = billingPeriod === 'annual'
+      ? process.env.STRIPE_ANNUAL_PRICE_ID
+      : process.env.STRIPE_STANDARD_PRICE_ID;
+
     if (!priceId) {
       return NextResponse.json(
         { error: 'Pricing not configured' },
@@ -70,7 +75,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create Stripe checkout session
+    // Create Stripe checkout session with 7-day trial
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -81,10 +86,14 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
+      subscription_data: {
+        trial_period_days: TRIAL_DAYS,
+      },
       metadata: {
         registrationToken: token,
         email: pending.email,
         name: pending.name,
+        billingPeriod,
       },
       success_url: `${BASE_URL}/developers/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${BASE_URL}/developers/checkout?token=${token}&canceled=true`,

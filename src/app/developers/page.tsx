@@ -75,9 +75,13 @@ export default function DevelopersPage() {
           <CardTitle>Pricing</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="max-w-md mx-auto">
-            <div className="p-6 border-2 border-blue-500 rounded-lg relative">
-              <span className="absolute -top-2 left-4 bg-blue-500 text-white text-xs px-2 py-0.5 rounded">Standard</span>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-6 text-center">
+            <p className="text-green-800 font-medium">Start with a 7-day free trial</p>
+            <p className="text-green-600 text-sm">No credit card required to try</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+            <div className="p-6 border-2 border-gray-200 rounded-lg">
+              <h3 className="font-semibold text-gray-900">Monthly</h3>
               <p className="text-3xl font-bold text-gray-900 mt-2">$49.99<span className="text-sm font-normal text-gray-500">/mo</span></p>
               <ul className="mt-4 space-y-2 text-sm text-gray-600">
                 <li className="flex items-center gap-2">
@@ -90,13 +94,7 @@ export default function DevelopersPage() {
                   <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  All endpoints included
-                </li>
-                <li className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Email support
+                  All endpoints
                 </li>
                 <li className="flex items-center gap-2">
                   <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,10 +104,36 @@ export default function DevelopersPage() {
                 </li>
               </ul>
             </div>
-            <p className="text-xs text-gray-500 mt-4 text-center">
-              Need higher limits? <a href="mailto:support@predictionmarketanalytics.io" className="text-blue-600 hover:underline">Contact us</a> for enterprise pricing.
-            </p>
+            <div className="p-6 border-2 border-blue-500 rounded-lg relative">
+              <span className="absolute -top-2 left-4 bg-blue-500 text-white text-xs px-2 py-0.5 rounded">Save 17%</span>
+              <h3 className="font-semibold text-gray-900">Annual</h3>
+              <p className="text-3xl font-bold text-gray-900 mt-2">$499.99<span className="text-sm font-normal text-gray-500">/yr</span></p>
+              <p className="text-sm text-gray-500">~$41.67/mo</p>
+              <ul className="mt-4 space-y-2 text-sm text-gray-600">
+                <li className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  10,000 requests/day
+                </li>
+                <li className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  All endpoints
+                </li>
+                <li className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  2 months free
+                </li>
+              </ul>
+            </div>
           </div>
+          <p className="text-xs text-gray-500 mt-4 text-center">
+            Need higher limits? <a href="mailto:support@predictionmarketanalytics.io" className="text-blue-600 hover:underline">Contact us</a> for enterprise pricing.
+          </p>
         </CardContent>
       </Card>
 
