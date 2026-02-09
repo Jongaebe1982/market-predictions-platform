@@ -18,7 +18,7 @@ async function sendVerificationEmail(to: string, name: string, verifyUrl: string
     await resend.emails.send({
       from: 'Prediction Market Analytics <noreply@predictionmarketanalytics.io>',
       to,
-      subject: 'Verify your email to get your API key',
+      subject: 'Start your 7-day free trial - Prediction Market Analytics API',
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #1f2937;">Welcome to Prediction Market Analytics</h1>
@@ -26,12 +26,12 @@ async function sendVerificationEmail(to: string, name: string, verifyUrl: string
             Hi ${name},
           </p>
           <p style="color: #4b5563; font-size: 16px;">
-            Click the button below to verify your email and get your API key:
+            Click the button below to verify your email and start your 7-day free trial:
           </p>
           <div style="text-align: center; margin: 32px 0;">
             <a href="${verifyUrl}"
                style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600;">
-              Get My API Key
+              Start Free Trial
             </a>
           </div>
           <p style="color: #6b7280; font-size: 14px;">
@@ -115,8 +115,8 @@ export async function POST(request: NextRequest) {
       verified: false,
     });
 
-    // Send verification email
-    const verifyUrl = `${BASE_URL}/developers/verify?token=${token}`;
+    // Send verification email - link to API route which handles verification and redirects
+    const verifyUrl = `${BASE_URL}/api/developer/verify?token=${token}`;
     await sendVerificationEmail(normalizedEmail, name.trim(), verifyUrl);
 
     return NextResponse.json({

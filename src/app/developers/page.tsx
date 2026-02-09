@@ -77,7 +77,7 @@ export default function DevelopersPage() {
         <CardContent>
           <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-6 text-center">
             <p className="text-green-800 font-medium">Start with a 7-day free trial</p>
-            <p className="text-green-600 text-sm">No credit card required to try</p>
+            <p className="text-green-600 text-sm">You won&apos;t be charged until your trial ends</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
             <div className="p-6 border-2 border-gray-200 rounded-lg">

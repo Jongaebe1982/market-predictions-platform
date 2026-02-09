@@ -46,7 +46,7 @@ export function DeveloperSignupForm() {
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Check your email</h3>
         <p className="text-gray-600 max-w-sm mx-auto">
           We sent a verification link to <strong>{email}</strong>.
-          Click the link to get your API key.
+          Click the link to start your 7-day free trial.
         </p>
         <p className="text-sm text-gray-500 mt-4">
           Didn&apos;t receive it? Check your spam folder or{' '}
@@ -111,7 +111,7 @@ export function DeveloperSignupForm() {
         disabled={state === 'submitting'}
         className="w-full py-2 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
-        {state === 'submitting' ? 'Sending...' : 'Get Free API Key'}
+        {state === 'submitting' ? 'Sending...' : 'Start 7-Day Free Trial'}
       </button>
     </form>
   );
