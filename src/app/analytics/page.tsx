@@ -69,12 +69,11 @@ export default async function AccuracyPage() {
       {/* Research Summary Box - Above the fold for SEO */}
       {(() => {
         const twoWeekHorizon = metrics.byHorizon.find((h) => h.horizon === '14d');
-        const brierDisplay = twoWeekHorizon && twoWeekHorizon.sampleSize > 0
-          ? twoWeekHorizon.averageBrierScore.toFixed(3)
-          : metrics.overall.averageBrierScore.toFixed(3);
-        const brierHorizonLabel = twoWeekHorizon && twoWeekHorizon.sampleSize > 0
-          ? '2-week horizon'
-          : `${horizonLabel.toLowerCase()} horizon`;
+        const oneWeekHorizon = metrics.byHorizon.find((h) => h.horizon === '7d');
+        const oneDayHorizon = metrics.byHorizon.find((h) => h.horizon === '1d');
+
+        const getBrierDisplay = (horizon: typeof twoWeekHorizon) =>
+          horizon && horizon.sampleSize > 0 ? horizon.averageBrierScore.toFixed(3) : '—';
 
         return (
           <div className="bg-gradient-to-r from-slate-50 to-blue-50 border border-slate-200 rounded-xl p-6 mb-8">
@@ -91,7 +90,7 @@ export default async function AccuracyPage() {
             </p>
 
             {/* Key metrics row */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 pt-4 border-t border-slate-200">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-200">
               <div className="text-center sm:text-left">
                 <p className="text-2xl font-bold text-gray-900">{metrics.overall.totalResolved}</p>
                 <p className="text-xs text-gray-500">Resolved Markets Analyzed</p>
@@ -99,10 +98,6 @@ export default async function AccuracyPage() {
               <div className="text-center sm:text-left">
                 <p className="text-2xl font-bold text-blue-600">{metrics.includedMarkets.length}</p>
                 <p className="text-xs text-gray-500">Total Markets Tracked</p>
-              </div>
-              <div className="text-center sm:text-left">
-                <p className="text-2xl font-bold text-gray-900">{brierDisplay}</p>
-                <p className="text-xs text-gray-500">Avg Brier Score ({brierHorizonLabel})</p>
               </div>
               <div className="text-center sm:text-left">
                 <p className="text-2xl font-bold text-green-600">{formatPercentage(metrics.overall.hitRate, 0)}</p>
@@ -116,6 +111,31 @@ export default async function AccuracyPage() {
                 </p>
                 <p className="text-xs text-gray-500">Last Updated</p>
                 <p className="text-xs text-gray-400">Refreshes hourly</p>
+              </div>
+            </div>
+
+            {/* Brier scores by horizon */}
+            <div className="grid grid-cols-3 gap-4 pt-4 mt-4 border-t border-slate-200">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-gray-900">{getBrierDisplay(twoWeekHorizon)}</p>
+                <p className="text-xs text-gray-500">Brier Score (2-week)</p>
+                {twoWeekHorizon && twoWeekHorizon.sampleSize > 0 && (
+                  <p className="text-xs text-gray-400">n={twoWeekHorizon.sampleSize}</p>
+                )}
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-gray-900">{getBrierDisplay(oneWeekHorizon)}</p>
+                <p className="text-xs text-gray-500">Brier Score (1-week)</p>
+                {oneWeekHorizon && oneWeekHorizon.sampleSize > 0 && (
+                  <p className="text-xs text-gray-400">n={oneWeekHorizon.sampleSize}</p>
+                )}
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-gray-900">{getBrierDisplay(oneDayHorizon)}</p>
+                <p className="text-xs text-gray-500">Brier Score (1-day)</p>
+                {oneDayHorizon && oneDayHorizon.sampleSize > 0 && (
+                  <p className="text-xs text-gray-400">n={oneDayHorizon.sampleSize}</p>
+                )}
               </div>
             </div>
           </div>
