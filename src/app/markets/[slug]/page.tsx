@@ -163,19 +163,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const isResolved = market.status === 'resolved';
-  const volumeDisplay = formatCurrency(market.volume);
+  const lastUpdated = market.updatedAt ? formatDate(market.updatedAt) : null;
 
+  let title: string;
   let description: string;
+
   if (isResolved) {
     const outcome = market.resolution || 'Yes/No';
-    description = `Resolved: ${outcome.toUpperCase()}. Final volume: ${volumeDisplay} on ${market.source}. ${market.ticker ? `${market.ticker} prediction market.` : ''} ${market.description?.slice(0, 100) || ''}`.trim();
+    title = `${market.question} (Resolved: ${outcome.toUpperCase()})`;
+    description = `Resolved ${outcome.toUpperCase()}${lastUpdated ? ` on ${lastUpdated}` : ''}. ${market.description?.slice(0, 140) || `This prediction market has concluded with a ${outcome.toUpperCase()} outcome.`}`.trim();
   } else {
     const yesProb = market.outcomes.find((o) => o.name === 'Yes')?.probability || market.outcomes[0]?.probability || 0;
-    const probDisplay = `${Math.round(yesProb * 100)}%`;
-    description = `Current probability: ${probDisplay} Yes. ${volumeDisplay} volume on ${market.source}. ${market.ticker ? `Track ${market.ticker} prediction markets.` : ''} ${market.description?.slice(0, 120) || ''}`.trim();
+    const yesPct = (yesProb * 100).toFixed(1);
+    title = `${market.question} (Yes: ${yesPct}%) – Prediction Market Odds`;
+    description = `As of ${lastUpdated || 'today'}, prediction markets price a ${yesPct}% chance that ${market.question.toLowerCase().replace(/\?$/, '')}. Track live odds and historical data.`.trim();
   }
-
-  const title = market.question;
 
   return {
     title,
@@ -185,7 +187,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
       type: 'article',
       url: `${BASE_URL}/markets/${market.slug}`,
-      siteName: 'Market Predictions',
+      siteName: 'Prediction Market Analytics',
     },
     twitter: {
       card: 'summary',
@@ -267,6 +269,20 @@ export default async function MarketDetailPage({ params }: PageProps) {
     ? market.question.slice(0, 47) + '...'
     : market.question;
 
+  // Derive last updated from priceHistory or market.updatedAt
+  const lastUpdatedTimestamp = priceHistory.length > 0
+    ? Math.max(...priceHistory.map((p) => p.timestamp))
+    : null;
+  const lastUpdatedDisplay = lastUpdatedTimestamp
+    ? formatDate(new Date(lastUpdatedTimestamp).toISOString())
+    : market.updatedAt
+      ? formatDate(market.updatedAt)
+      : null;
+
+  const yesProb = market.outcomes.find((o) => o.name === 'Yes')?.probability || market.outcomes[0]?.probability || 0;
+  const noProb = market.outcomes.find((o) => o.name === 'No')?.probability || market.outcomes[1]?.probability || (1 - yesProb);
+  const sourceName = market.source === 'polymarket' ? 'Polymarket' : 'Kalshi';
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb with JSON-LD */}
@@ -277,6 +293,51 @@ export default async function MarketDetailPage({ params }: PageProps) {
           { label: truncatedQuestion },
         ]}
       />
+
+      {/* Market Answer Box - Above the fold summary for SEO */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex-1">
+            <h2 className="text-sm font-semibold text-blue-800 uppercase tracking-wide mb-1">
+              Current Market Odds
+            </h2>
+            <div className="flex items-baseline gap-4">
+              <div>
+                <span className="text-3xl font-bold text-green-600">{formatPercentage(yesProb, 1)}</span>
+                <span className="text-sm text-gray-600 ml-1">Yes</span>
+              </div>
+              <div>
+                <span className="text-3xl font-bold text-red-500">{formatPercentage(noProb, 1)}</span>
+                <span className="text-sm text-gray-600 ml-1">No</span>
+              </div>
+            </div>
+            <p className="text-gray-700 mt-2">
+              {isResolved
+                ? `This market resolved ${(resolution?.outcome || market.resolution)?.toUpperCase() || 'N/A'}${market.resolvedAt ? ` on ${formatDate(market.resolvedAt)}` : ''}.`
+                : `Markets currently price a ${formatPercentage(yesProb, 0)} chance of YES.`}
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500">Source:</span>
+              <Link href={`/sources/${market.source}`}>
+                <Badge variant={market.source === 'polymarket' ? 'default' : 'warning'}>{sourceName}</Badge>
+              </Link>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500">Status:</span>
+              <Badge variant={market.status === 'active' ? 'success' : market.status === 'resolved' ? 'info' : 'muted'}>
+                {market.status === 'resolved' ? `Resolved: ${(resolution?.outcome || market.resolution)?.toUpperCase() || 'N/A'}` : market.status}
+              </Badge>
+            </div>
+            {lastUpdatedDisplay && (
+              <div className="text-gray-500">
+                Updated: <span className="text-gray-700">{lastUpdatedDisplay}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main content */}

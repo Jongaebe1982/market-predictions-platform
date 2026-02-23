@@ -3,7 +3,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { getCompaniesBySector } from '@/lib/sector-mapping';
 import { getCompanyOrFallback } from '@/lib/company-discovery';
-import { formatCurrency, formatPercentage } from '@/lib/utils';
+import { formatCurrency, formatPercentage, formatDate } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
@@ -67,12 +67,36 @@ async function getCompanyAccuracy(ticker: string): Promise<CompanyAccuracy | nul
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { ticker } = await params;
-  const company = await getCompanyOrFallback(ticker.toUpperCase());
+  const upperTicker = ticker.toUpperCase();
+  const company = await getCompanyOrFallback(upperTicker);
   if (!company) return { title: 'Company Not Found' };
 
+  // Fetch markets and accuracy for metadata
+  const [markets, accuracy] = await Promise.all([
+    getCompanyMarkets(upperTicker),
+    getCompanyAccuracy(upperTicker),
+  ]);
+
+  const totalMarkets = markets.active.length + markets.resolved.length;
+  const activeCount = markets.active.length;
+
+  let description = `Track prediction markets for ${company.name} (${company.ticker}).`;
+  if (activeCount > 0) {
+    description += ` ${activeCount} active market${activeCount === 1 ? '' : 's'} currently pricing outcomes.`;
+  }
+  if (accuracy && accuracy.resolvedCount > 0) {
+    const hitRatePct = Math.round(accuracy.hitRate * 100);
+    description += ` Historical accuracy: ${hitRatePct}% hit rate across ${accuracy.resolvedCount} resolved markets.`;
+  }
+
   return {
-    title: `${company.name} (${company.ticker}) Prediction Markets`,
-    description: `Track prediction markets for ${company.name} (${company.ticker}). See accuracy scores, active markets, and historical performance in the ${company.sector} sector.`,
+    title: `${company.name} (${company.ticker}) Prediction Markets – ${totalMarkets} Markets Tracked`,
+    description,
+    openGraph: {
+      title: `${company.name} (${company.ticker}) Prediction Markets`,
+      description,
+      type: 'website',
+    },
   };
 }
 
@@ -111,7 +135,7 @@ export default async function CompanyPage({ params }: PageProps) {
       />
 
       {/* Company Header */}
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex items-center gap-4 mb-6">
         <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
           <span className="text-blue-700 font-bold text-sm">{company.ticker}</span>
         </div>
@@ -123,6 +147,73 @@ export default async function CompanyPage({ params }: PageProps) {
           </div>
         </div>
       </div>
+
+      {/* Company Summary Box - Above the fold for SEO */}
+      {(() => {
+        const totalMarkets = activeMarkets.length + resolvedMarkets.length;
+        // Derive last updated from most recent market update
+        const allMarkets = [...activeMarkets, ...resolvedMarkets];
+        const lastUpdated = allMarkets.length > 0
+          ? allMarkets.reduce((latest, m) => {
+              const mDate = m.updatedAt || m.resolvedAt || m.createdAt;
+              if (!mDate) return latest;
+              return !latest || new Date(mDate) > new Date(latest) ? mDate : latest;
+            }, null as string | null)
+          : null;
+
+        return (
+          <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-xl p-5 mb-6">
+            <h2 className="text-sm font-semibold text-indigo-800 uppercase tracking-wide mb-3">
+              Market Summary
+            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-start gap-6">
+              {/* Market counts */}
+              <div className="flex gap-6">
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-blue-600">{activeMarkets.length}</p>
+                  <p className="text-xs text-gray-600">Active Markets</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-gray-500">{resolvedMarkets.length}</p>
+                  <p className="text-xs text-gray-600">Resolved</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-gray-900">{totalMarkets}</p>
+                  <p className="text-xs text-gray-600">Total Tracked</p>
+                </div>
+              </div>
+
+              {/* Accuracy stats if available */}
+              {accuracy && accuracy.resolvedCount > 0 && (
+                <div className="border-l border-indigo-200 pl-6">
+                  <p className="text-sm text-gray-700 mb-1">
+                    <span className="font-semibold">Prediction accuracy:</span>{' '}
+                    <span className="text-green-700 font-bold">{Math.round(accuracy.hitRate * 100)}%</span> hit rate,{' '}
+                    Brier <span className="font-bold">{accuracy.averageBrierScore.toFixed(3)}</span>
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Based on {accuracy.resolvedCount} resolved market{accuracy.resolvedCount === 1 ? '' : 's'}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Takeaway + last updated */}
+            <div className="mt-4 pt-3 border-t border-indigo-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
+              <p className="text-gray-700">
+                {activeMarkets.length > 0
+                  ? `Traders are currently pricing outcomes across ${activeMarkets.length} active market${activeMarkets.length === 1 ? '' : 's'} for ${company.name}.`
+                  : `No active prediction markets for ${company.name} at this time.`}
+              </p>
+              {lastUpdated && (
+                <p className="text-gray-500 whitespace-nowrap">
+                  Last updated: <span className="text-gray-700">{formatDate(lastUpdated)}</span>
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Company Overview - Rich SEO Content */}
       <CompanyOverview
