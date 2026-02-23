@@ -296,6 +296,7 @@ export default async function MarketDetailPage({ params }: PageProps) {
 
       {/* Market Answer Box - Above the fold summary for SEO */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5 mb-6">
+        <h1 className="text-xl font-bold text-gray-900 mb-4">{market.question}</h1>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex-1">
             <h2 className="text-sm font-semibold text-blue-800 uppercase tracking-wide mb-1">
@@ -346,7 +347,6 @@ export default async function MarketDetailPage({ params }: PageProps) {
           <section id="probability">
           <Card>
             <CardContent>
-              <h1 className="text-xl font-bold text-gray-900 mb-3">{market.question}</h1>
               <p className="text-gray-600 text-sm mb-4">{market.description}</p>
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 {market.ticker && (
