@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { AccuracyCharts } from './AccuracyCharts';
 import { IncludedMarketsSection } from './IncludedMarketsSection';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
-import { PageContents, KeyTakeaways, DataFreshness } from '@/components/seo/PageSections';
+import { PageContents, KeyTakeaways } from '@/components/seo/PageSections';
 
 export const metadata: Metadata = {
   title: 'Analytics',
@@ -62,15 +62,65 @@ export default async function AccuracyPage() {
       />
 
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Prediction Market Analytics</h1>
-        <p className="text-gray-600 max-w-3xl">
-          We observe and store resolved prediction market data to track accuracy over time.
-          Below you&apos;ll find Brier scores, hit rates, and calibration metrics across different
-          time horizons, sources, and sectors.
-        </p>
-        <DataFreshness refreshInterval="hourly" />
       </div>
+
+      {/* Research Summary Box - Above the fold for SEO */}
+      {(() => {
+        const twoWeekHorizon = metrics.byHorizon.find((h) => h.horizon === '14d');
+        const brierDisplay = twoWeekHorizon && twoWeekHorizon.sampleSize > 0
+          ? twoWeekHorizon.averageBrierScore.toFixed(3)
+          : metrics.overall.averageBrierScore.toFixed(3);
+        const brierHorizonLabel = twoWeekHorizon && twoWeekHorizon.sampleSize > 0
+          ? '2-week horizon'
+          : `${horizonLabel.toLowerCase()} horizon`;
+
+        return (
+          <div className="bg-gradient-to-r from-slate-50 to-blue-50 border border-slate-200 rounded-xl p-6 mb-8">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">
+              Prediction Market Accuracy Research
+            </h2>
+            <p className="text-gray-700 mb-4 max-w-4xl">
+              We aggregate and archive historical data from Polymarket and Kalshi to evaluate real-world
+              prediction accuracy. Our database tracks thousands of resolved markets and measures performance
+              using Brier scores, hit rates, and time-horizon calibration analysis.
+            </p>
+            <p className="text-sm text-blue-800 font-medium mb-5">
+              No other public database combines cross-platform prediction market histories with time-horizon accuracy measurement.
+            </p>
+
+            {/* Key metrics row */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 pt-4 border-t border-slate-200">
+              <div className="text-center sm:text-left">
+                <p className="text-2xl font-bold text-gray-900">{metrics.overall.totalResolved}</p>
+                <p className="text-xs text-gray-500">Resolved Markets Analyzed</p>
+              </div>
+              <div className="text-center sm:text-left">
+                <p className="text-2xl font-bold text-blue-600">{metrics.includedMarkets.length}</p>
+                <p className="text-xs text-gray-500">Total Markets Tracked</p>
+              </div>
+              <div className="text-center sm:text-left">
+                <p className="text-2xl font-bold text-gray-900">{brierDisplay}</p>
+                <p className="text-xs text-gray-500">Avg Brier Score ({brierHorizonLabel})</p>
+              </div>
+              <div className="text-center sm:text-left">
+                <p className="text-2xl font-bold text-green-600">{formatPercentage(metrics.overall.hitRate, 0)}</p>
+                <p className="text-xs text-gray-500">Directional Hit Rate</p>
+              </div>
+              <div className="text-center sm:text-left">
+                <p className="text-sm font-medium text-gray-700">
+                  {metrics.lastUpdated
+                    ? new Date(metrics.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : 'Recently'}
+                </p>
+                <p className="text-xs text-gray-500">Last Updated</p>
+                <p className="text-xs text-gray-400">Refreshes hourly</p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Page Contents */}
       <PageContents
