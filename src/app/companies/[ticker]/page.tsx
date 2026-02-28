@@ -29,13 +29,14 @@ async function getAllMarketsCached(): Promise<MarketDocument[]> {
     return marketsCache.data;
   }
 
-  const [{ fetchPolymarketStockMarkets }, { fetchKalshiStockMarkets }] = await Promise.all([
+  // Use fetchAll functions to include both active and resolved markets
+  const [{ fetchAllPolymarketMarkets }, { fetchAllKalshiMarkets }] = await Promise.all([
     import('@/lib/polymarket'),
     import('@/lib/kalshi'),
   ]);
   const [polymarkets, kalshiMarkets] = await Promise.all([
-    fetchPolymarketStockMarkets(),
-    fetchKalshiStockMarkets(),
+    fetchAllPolymarketMarkets(),
+    fetchAllKalshiMarkets(),
   ]);
   const allMarkets = [...polymarkets, ...kalshiMarkets];
   marketsCache = { data: allMarkets, timestamp: now };
