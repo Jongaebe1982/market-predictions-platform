@@ -136,13 +136,15 @@ export default async function CompanyPage({ params }: PageProps) {
       />
 
       {/* Company Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-          <span className="text-blue-700 font-bold text-sm">{company.ticker}</span>
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{company.name}</h1>
-          <div className="flex items-center gap-2 mt-1">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-3">
+          How have prediction markets for {company.name} performed?
+        </h1>
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
+            <span className="text-blue-700 font-bold text-sm">{company.ticker}</span>
+          </div>
+          <div className="flex items-center gap-2">
             <Badge variant="info">{company.ticker}</Badge>
             <Badge variant="muted">{company.sector}</Badge>
           </div>
