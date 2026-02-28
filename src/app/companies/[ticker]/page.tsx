@@ -151,7 +151,9 @@ export default async function CompanyPage({ params }: PageProps) {
 
       {/* Company Summary Box - Above the fold for SEO */}
       {(() => {
-        const totalMarkets = activeMarkets.length + resolvedMarkets.length;
+        // Use accuracy.resolvedCount from Firestore for historical accuracy, fall back to API count
+        const resolvedCount = accuracy?.resolvedCount ?? resolvedMarkets.length;
+        const totalMarkets = activeMarkets.length + resolvedCount;
         // Derive last updated from most recent market update
         const allMarkets = [...activeMarkets, ...resolvedMarkets];
         const lastUpdated = allMarkets.length > 0
@@ -175,7 +177,7 @@ export default async function CompanyPage({ params }: PageProps) {
                   <p className="text-xs text-gray-600">Active Markets</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-gray-500">{resolvedMarkets.length}</p>
+                  <p className="text-3xl font-bold text-gray-500">{resolvedCount}</p>
                   <p className="text-xs text-gray-600">Resolved</p>
                 </div>
                 <div className="text-center">
@@ -220,7 +222,7 @@ export default async function CompanyPage({ params }: PageProps) {
       <CompanyOverview
         company={company}
         activeMarketCount={activeMarkets.length}
-        resolvedMarketCount={resolvedMarkets.length}
+        resolvedMarketCount={accuracy?.resolvedCount ?? resolvedMarkets.length}
         accuracy={accuracy}
       />
 
