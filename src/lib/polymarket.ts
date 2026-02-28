@@ -334,45 +334,64 @@ export async function fetchPriceHistory(conditionId: string): Promise<PricePoint
 
 /**
  * Fetch price history with fallback to Firestore stored data.
- * Tries CLOB API first, then stored price-history, then snapshots.
+ * Merges CLOB API data with stored snapshots to get the longest possible history.
+ * This ensures we have data for longer time horizons (e.g., 30 days) even when
+ * the CLOB API only returns recent data.
  */
 export async function fetchPriceHistoryWithFallback(
   clobTokenId: string,
   marketId: string
 ): Promise<PricePoint[]> {
-  // Try CLOB API first
-  const clobHistory = await fetchPriceHistory(clobTokenId);
-  if (clobHistory.length > 0) return clobHistory;
-
-  // Fallback: check stored price-history document
   const { getAdminDb } = await import('./firebase-admin');
   const db = getAdminDb();
 
+  // Collect price points from all sources
+  const allPoints: PricePoint[] = [];
+
+  // 1. Try CLOB API
+  const clobHistory = await fetchPriceHistory(clobTokenId);
+  allPoints.push(...clobHistory);
+
+  // 2. Check stored price-history document
   const priceHistoryDoc = await db.collection('price-history').doc(marketId).get();
   if (priceHistoryDoc.exists) {
     const data = priceHistoryDoc.data();
     if (data?.history && data.history.length > 0) {
-      return data.history as PricePoint[];
+      allPoints.push(...(data.history as PricePoint[]));
     }
   }
 
-  // Final fallback: query snapshots collection
+  // 3. Query snapshots collection (daily cron data)
   const snapshots = await db
     .collection('snapshots')
     .where('marketId', '==', marketId)
     .orderBy('timestamp', 'asc')
     .get();
 
-  if (snapshots.empty) return [];
+  if (!snapshots.empty) {
+    for (const doc of snapshots.docs) {
+      const data = doc.data();
+      const yesOutcome = data.outcomes?.find(
+        (o: { name: string }) => o.name.toLowerCase() === 'yes'
+      );
+      if (yesOutcome) {
+        allPoints.push({
+          timestamp: new Date(data.timestamp).getTime(),
+          price: yesOutcome.probability ?? 0.5,
+        });
+      }
+    }
+  }
 
-  return snapshots.docs.map((doc) => {
-    const data = doc.data();
-    const yesOutcome = data.outcomes?.find(
-      (o: { name: string }) => o.name.toLowerCase() === 'yes'
-    );
-    return {
-      timestamp: new Date(data.timestamp).getTime(),
-      price: yesOutcome?.probability ?? 0.5,
-    };
+  if (allPoints.length === 0) return [];
+
+  // Dedupe by timestamp (keep first occurrence) and sort chronologically
+  const seen = new Set<number>();
+  const deduped = allPoints.filter((p) => {
+    if (seen.has(p.timestamp)) return false;
+    seen.add(p.timestamp);
+    return true;
   });
+
+  return deduped.sort((a, b) => a.timestamp - b.timestamp);
 }
