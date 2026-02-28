@@ -138,7 +138,7 @@ export default async function CompanyPage({ params }: PageProps) {
       {/* Company Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-3">
-          How have prediction markets for {company.name} performed?
+          {company.name} ({company.ticker}) Stock Prediction Market Performance – Polymarket vs Kalshi Accuracy & Prediction Market Overview
         </h1>
         <div className="flex items-center gap-4">
           <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
