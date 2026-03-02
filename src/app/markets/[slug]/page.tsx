@@ -448,8 +448,8 @@ export default async function MarketDetailPage({ params }: PageProps) {
                   {resolution?.horizons && Object.keys(resolution.horizons).length > 0 && (
                     <div className="border-t pt-4">
                       <p className="text-sm font-medium text-gray-700 mb-2">Probability Over Time</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-sm">
-                        {(['30d', '14d', '7d', '1d', '12h'] as const).map((key) => {
+                      <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-sm">
+                        {(['14d', '10d', '7d', '2d', '1d', '12h'] as const).map((key) => {
                           const horizon = resolution.horizons?.[key];
                           if (!horizon) return null;
                           return (

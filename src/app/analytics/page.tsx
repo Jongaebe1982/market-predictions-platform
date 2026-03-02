@@ -21,7 +21,7 @@ export default async function AccuracyPage() {
   const metrics = await computeRealAccuracyMetrics();
 
   // Find which horizon is actually being used for the overall score
-  const preferenceOrder = ['30d', '14d', '7d', '1d', '12h'] as const;
+  const preferenceOrder = ['14d', '10d', '7d', '2d', '1d', '12h'] as const;
   const usedHorizon = metrics.byHorizon.find(
     (h) => preferenceOrder.includes(h.horizon as typeof preferenceOrder[number]) && h.sampleSize > 0
   );
