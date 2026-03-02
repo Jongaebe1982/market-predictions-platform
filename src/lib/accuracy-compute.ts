@@ -1,4 +1,4 @@
-import { fetchResolvedStockMarkets, fetchPolymarketStockMarkets, fetchPriceHistoryWithFallback } from './polymarket';
+import { fetchResolvedStockMarkets, fetchPolymarketStockMarkets } from './polymarket';
 import { fetchKalshiStockMarkets, fetchResolvedKalshiMarkets } from './kalshi';
 import { HORIZONS, calculateBrierScore, computeAccuracyMetrics } from './accuracy-utils';
 import type { AccuracyMetrics, MarketResolution, IncludedMarket, HorizonKey, HorizonProbability, PricePoint } from './types';
@@ -235,13 +235,13 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
       horizonsAvailable: [],
     }));
 
-    // Process Polymarket resolved markets (with CLOB price history, fallback to outcome-based)
+    // Process Polymarket resolved markets (using snapshots for horizon data)
     const polymarketLiveResolutions = await processWithConcurrency(
       polymarketResolved,
       CONCURRENCY_LIMIT,
       async (market): Promise<MarketResolution | null> => {
         try {
-          const history = await fetchPriceHistoryWithFallback(market.clobTokenId, market.id);
+          const history = await fetchSnapshotHistory(market.id);
           const outcomeBoolean = market.outcome === 'yes';
 
           let horizons: Partial<Record<HorizonKey, HorizonProbability>> = {};

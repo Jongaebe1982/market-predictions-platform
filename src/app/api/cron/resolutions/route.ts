@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchResolvedStockMarkets, fetchPriceHistoryWithFallback } from '@/lib/polymarket';
+import { fetchResolvedStockMarkets } from '@/lib/polymarket';
 import { fetchResolvedKalshiMarkets } from '@/lib/kalshi';
 import { calculateBrierScore, HORIZONS } from '@/lib/accuracy-utils';
 import type { HorizonKey, HorizonProbability, PricePoint } from '@/lib/types';
@@ -105,8 +105,8 @@ export async function POST(request: NextRequest) {
 
       if (!existing.empty) continue;
 
-      // Fetch CLOB price history (with fallback to stored snapshots)
-      const history = await fetchPriceHistoryWithFallback(market.clobTokenId, market.id);
+      // Use stored snapshots for price history (more reliable than API)
+      const history = await fetchSnapshotHistory(db, market.id);
 
       const resolutionDate = market.endDate
         ? new Date(market.endDate).getTime()
