@@ -114,6 +114,36 @@ function findProbabilityAtTime(
 }
 
 /**
+ * Fetch snapshot history for a market from Firestore.
+ * Used for Kalshi markets which don't have a price history API.
+ */
+async function fetchSnapshotHistory(marketId: string): Promise<PricePoint[]> {
+  try {
+    const db = getAdminDb();
+    const snapshots = await db
+      .collection('snapshots')
+      .where('marketId', '==', marketId)
+      .orderBy('timestamp', 'asc')
+      .get();
+
+    if (snapshots.empty) return [];
+
+    return snapshots.docs.map((doc) => {
+      const data = doc.data();
+      const yesOutcome = data.outcomes?.find(
+        (o: { name: string }) => o.name.toLowerCase() === 'yes'
+      );
+      return {
+        timestamp: new Date(data.timestamp).getTime(),
+        price: yesOutcome?.probability ?? 0.5,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Process a batch of items with concurrency limit.
  */
 async function processWithConcurrency<T, R>(
@@ -278,28 +308,63 @@ export async function computeRealAccuracyMetrics(): Promise<AccuracyMetrics> {
       }
     );
 
-    // Process Kalshi resolved markets (using last price, no historical data available)
-    const kalshiLiveResolutions: MarketResolution[] = kalshiResolved.map((market) => {
-      const outcomeBoolean = market.outcome === 'yes';
-      const brierScore = calculateBrierScore(market.lastPrice, outcomeBoolean);
+    // Process Kalshi resolved markets (using snapshots for horizon data)
+    const kalshiLiveResolutions = await processWithConcurrency(
+      kalshiResolved,
+      CONCURRENCY_LIMIT,
+      async (market): Promise<MarketResolution> => {
+        const outcomeBoolean = market.outcome === 'yes';
+        const history = await fetchSnapshotHistory(market.id);
 
-      return {
-        id: market.id,
-        marketId: market.id,
-        slug: market.slug,
-        question: market.question,
-        sector: market.sector,
-        ticker: market.ticker,
-        source: 'kalshi',
-        resolvedAt: market.endDate,
-        resolution: market.outcome,
-        finalProbability: market.lastPrice,
-        outcome: market.outcome,
-        brierScore,
-        volume: market.volume,
-        horizons: {}, // Kalshi doesn't have historical price data via public API
-      };
-    });
+        let horizons: Partial<Record<HorizonKey, HorizonProbability>> = {};
+        let brierScore = calculateBrierScore(market.lastPrice, outcomeBoolean);
+
+        if (history.length > 0) {
+          const sortedHistory = [...history].sort((a, b) => a.timestamp - b.timestamp);
+          const resolutionDate = market.endDate
+            ? new Date(market.endDate).getTime()
+            : Date.now();
+
+          for (const { key, hours } of HORIZONS) {
+            const targetTime = resolutionDate - hours * 60 * 60 * 1000;
+            const probability = findProbabilityAtTime(sortedHistory, targetTime);
+            if (probability !== null) {
+              horizons[key] = {
+                probability,
+                brierScore: calculateBrierScore(probability, outcomeBoolean),
+                timestamp: new Date(targetTime).toISOString(),
+              };
+            }
+          }
+
+          // Use earliest available horizon for representative Brier score
+          const horizonPreference: HorizonKey[] = ['14d', '10d', '7d', '2d', '1d', '12h'];
+          for (const key of horizonPreference) {
+            if (horizons[key]) {
+              brierScore = horizons[key]!.brierScore;
+              break;
+            }
+          }
+        }
+
+        return {
+          id: market.id,
+          marketId: market.id,
+          slug: market.slug,
+          question: market.question,
+          sector: market.sector,
+          ticker: market.ticker,
+          source: 'kalshi',
+          resolvedAt: market.endDate,
+          resolution: market.outcome,
+          finalProbability: market.lastPrice,
+          outcome: market.outcome,
+          brierScore,
+          volume: market.volume,
+          horizons,
+        };
+      }
+    );
 
     const validPolymarketResolutions = polymarketLiveResolutions.filter(
       (r): r is MarketResolution => r !== null
