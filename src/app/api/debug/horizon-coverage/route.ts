@@ -3,10 +3,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { fetchResolvedStockMarkets, fetchPriceHistoryWithFallback } from '@/lib/polymarket';
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  if (process.env.NODE_ENV === 'production' && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  // No auth required for debug endpoint
 
   try {
     const db = getAdminDb();
