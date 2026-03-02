@@ -16,9 +16,10 @@ export async function GET(request: NextRequest) {
     let withHorizons = 0;
     let emptyHorizons = 0;
     const horizonCounts: Record<string, number> = {
-      '30d': 0,
       '14d': 0,
+      '10d': 0,
       '7d': 0,
+      '2d': 0,
       '1d': 0,
       '12h': 0,
     };

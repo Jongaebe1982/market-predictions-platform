@@ -67,7 +67,7 @@ function getBestBrierScore(
   fallbackProbability: number,
   outcomeBoolean: boolean
 ): number {
-  const horizonPreference: HorizonKey[] = ['30d', '14d', '7d', '1d', '12h'];
+  const horizonPreference: HorizonKey[] = ['14d', '10d', '7d', '2d', '1d', '12h'];
   for (const key of horizonPreference) {
     if (horizons[key]) {
       return horizons[key]!.brierScore;

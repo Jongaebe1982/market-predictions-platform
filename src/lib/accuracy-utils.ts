@@ -1,9 +1,10 @@
 import type { MarketResolution, CalibrationPoint, AccuracyMetrics, SectorAccuracy, CompanyAccuracy, HorizonAccuracy, HorizonKey, VolumeAccuracy, SourceAccuracy, IncludedMarket } from './types';
 
 export const HORIZONS: { key: HorizonKey; label: string; hours: number }[] = [
-  { key: '30d', label: '1 Month', hours: 30 * 24 },
   { key: '14d', label: '2 Weeks', hours: 14 * 24 },
+  { key: '10d', label: '10 Days', hours: 10 * 24 },
   { key: '7d', label: '1 Week', hours: 7 * 24 },
+  { key: '2d', label: '2 Days', hours: 2 * 24 },
   { key: '1d', label: '1 Day', hours: 24 },
   { key: '12h', label: '12 Hours', hours: 12 },
 ];
@@ -17,12 +18,12 @@ const VOLUME_BUCKETS = [
 
 /**
  * Get a representative probability for a market resolution.
- * Uses 30-day (1 month) horizon — what the market predicted early on.
+ * Uses 2-week horizon — what the market predicted early on.
  * Falls back to next earliest available horizon.
  */
 function getRepresentativeProbability(r: MarketResolution): number | null {
-  // Prefer 30-day (1 month) horizon — earliest meaningful prediction
-  const preferenceOrder: HorizonKey[] = ['30d', '14d', '7d', '1d', '12h'];
+  // Prefer 2-week horizon — earliest meaningful prediction for earnings markets
+  const preferenceOrder: HorizonKey[] = ['14d', '10d', '7d', '2d', '1d', '12h'];
   for (const key of preferenceOrder) {
     if (r.horizons?.[key]) return r.horizons[key]!.probability;
   }
@@ -190,9 +191,9 @@ export function computeAccuracyMetrics(resolutions: MarketResolution[]): Accurac
   const bySource = computeSourceAccuracy(resolutions);
   const includedMarkets = buildIncludedMarkets(resolutions);
 
-  // Use 30-day (1 month) horizon Brier as the overall representative score
+  // Use 2-week horizon Brier as the overall representative score
   // Falls back to earliest available horizon with data
-  const preferenceOrder: HorizonKey[] = ['30d', '14d', '7d', '1d', '12h'];
+  const preferenceOrder: HorizonKey[] = ['14d', '10d', '7d', '2d', '1d', '12h'];
   let overallBrier = calculateAverageBrier(resolutions);
   for (const key of preferenceOrder) {
     const horizon = byHorizon.find((h) => h.horizon === key);

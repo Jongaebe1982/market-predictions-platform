@@ -1,0 +1,35 @@
+Update my existing Next.js app (predictionmarketanalytics.io). You already know the repo and current page structure.
+
+GOAL
+Increase Google clicks by adding a clear, above-the-fold “Answer/Summary Box” to:
+1) Market pages: /markets/[slug]
+2) Company pages: /companies/[ticker]
+
+IMPORTANT
+This is not a rebuild. Make minimal changes and reuse existing data already being fetched/rendered.
+
+PART A — MARKET PAGES (/markets/[slug])
+Add an above-the-fold “Market Answer Box” placed right below breadcrumbs and above the long description (or as the first section inside the top card).
+
+Market Answer Box must show:
+- “Current Market Odds” with YES % and NO % (use the same numbers already powering the “Current Probabilities” section)
+- One-line takeaway: “Markets currently price a X% chance of YES.”
+- Last updated timestamp (use the best existing field; if none, derive from most recent datapoint in the probability/history series; fallback to “unknown” only if unavoidable)
+- Sources: Polymarket/Kalshi (reuse existing platform tags/chips)
+- Status: active/resolved (reuse existing status chip)
+
+SEO BONUS (only if metadata handling is already in place)
+Update title + meta description for market pages to include probability + last updated date.
+Example title: “<Question> (Yes: 1.1%) – Prediction Market Odds”
+Example meta: “As of <date>, prediction markets price a <yes%> chance that <question>…”
+
+PART B — COMPANY PAGES (/companies/[ticker])
+Add an above-the-fold “Company Summary Box” placed right under the company name/ticker.
+
+Company Summary Box must show:
+- “Active markets: X” “Resolved markets: Y” “Total tracked: Z” (these already exist on the page—reuse that data)
+- If you have accuracy stats on the page (hit rate / Brier), pull the key numbers into the box:
+  “Prediction accuracy: <hit rate>% hit rate, Brier <score>”
+- “Last updated: <date>” based on the most recent market update for that company (derive from the most recent update timestamp across the company’s markets; fallback if needed)
+- One-line takeaway:
+  “Traders are currently pricing outcomes across X active markets for <Company>.”

@@ -41,7 +41,7 @@ export interface MarketSnapshot {
   source: string;
 }
 
-export type HorizonKey = '30d' | '14d' | '7d' | '1d' | '12h';
+export type HorizonKey = '14d' | '10d' | '7d' | '2d' | '1d' | '12h';
 
 export interface HorizonProbability {
   probability: number;

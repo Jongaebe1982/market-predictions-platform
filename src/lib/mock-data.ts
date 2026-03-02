@@ -18,9 +18,10 @@ function generateHorizons(
   // and gradually converge toward the correct direction.
   // We add controlled noise to make it realistic.
   const horizonConfigs: { key: HorizonKey; hoursBack: number; uncertainty: number }[] = [
-    { key: '30d', hoursBack: 30 * 24, uncertainty: 0.25 },
-    { key: '14d', hoursBack: 14 * 24, uncertainty: 0.18 },
-    { key: '7d', hoursBack: 7 * 24, uncertainty: 0.12 },
+    { key: '14d', hoursBack: 14 * 24, uncertainty: 0.22 },
+    { key: '10d', hoursBack: 10 * 24, uncertainty: 0.18 },
+    { key: '7d', hoursBack: 7 * 24, uncertainty: 0.14 },
+    { key: '2d', hoursBack: 2 * 24, uncertainty: 0.08 },
     { key: '1d', hoursBack: 24, uncertainty: 0.06 },
     { key: '12h', hoursBack: 12, uncertainty: 0.03 },
   ];
@@ -43,7 +44,7 @@ function generateHorizons(
     prob = Math.max(0.05, Math.min(0.95, prob + noise * uncertainty * 3));
 
     // For "no" outcomes where market was initially wrong, make early predictions lean "yes"
-    if (!isYes && key === '30d') {
+    if (!isYes && key === '14d') {
       prob = Math.max(prob, 0.45 + seed * 0.2); // Market often starts wrong
     }
 
@@ -318,9 +319,10 @@ export const MOCK_ACCURACY_METRICS: AccuracyMetrics = {
     ],
   },
   byHorizon: [
-    { horizon: '30d', label: '1 Month', hoursBeforeResolution: 720, sampleSize: 42, averageBrierScore: 0.198, hitRate: 0.64 },
-    { horizon: '14d', label: '2 Weeks', hoursBeforeResolution: 336, sampleSize: 46, averageBrierScore: 0.167, hitRate: 0.70 },
-    { horizon: '7d', label: '1 Week', hoursBeforeResolution: 168, sampleSize: 48, averageBrierScore: 0.142, hitRate: 0.75 },
+    { horizon: '14d', label: '2 Weeks', hoursBeforeResolution: 336, sampleSize: 46, averageBrierScore: 0.198, hitRate: 0.64 },
+    { horizon: '10d', label: '10 Days', hoursBeforeResolution: 240, sampleSize: 47, averageBrierScore: 0.175, hitRate: 0.68 },
+    { horizon: '7d', label: '1 Week', hoursBeforeResolution: 168, sampleSize: 48, averageBrierScore: 0.152, hitRate: 0.72 },
+    { horizon: '2d', label: '2 Days', hoursBeforeResolution: 48, sampleSize: 50, averageBrierScore: 0.125, hitRate: 0.78 },
     { horizon: '1d', label: '1 Day', hoursBeforeResolution: 24, sampleSize: 50, averageBrierScore: 0.118, hitRate: 0.80 },
     { horizon: '12h', label: '12 Hours', hoursBeforeResolution: 12, sampleSize: 50, averageBrierScore: 0.105, hitRate: 0.82 },
   ],
