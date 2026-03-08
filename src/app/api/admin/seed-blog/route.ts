@@ -10,16 +10,16 @@ import { saveBlogPost } from '@/lib/blog';
  * POST /api/admin/seed-blog
  *
  * For development/testing, set NODE_ENV=development to skip auth.
- * In production, requires ADMIN_SECRET header.
+ * In production, requires CRON_SECRET header.
  */
 export async function POST(request: Request) {
   try {
-    // In production, require admin secret
+    // In production, require cron secret
     if (process.env.NODE_ENV === 'production') {
       const authHeader = request.headers.get('authorization');
-      const adminSecret = process.env.ADMIN_SECRET;
+      const cronSecret = process.env.CRON_SECRET;
 
-      if (!adminSecret || authHeader !== `Bearer ${adminSecret}`) {
+      if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
     }
