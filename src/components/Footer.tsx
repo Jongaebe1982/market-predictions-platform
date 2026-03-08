@@ -36,6 +36,7 @@ export function Footer() {
           <div>
             <h4 className="font-medium text-gray-900 text-sm mb-3">Resources</h4>
             <ul className="space-y-2">
+              <li><Link href="/blog" className="text-sm text-gray-500 hover:text-gray-700">Blog</Link></li>
               {showApiTab && (
                 <li><Link href="/developers" className="text-sm text-gray-500 hover:text-gray-700">Developer API</Link></li>
               )}
