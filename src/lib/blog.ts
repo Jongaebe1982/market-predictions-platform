@@ -9,37 +9,45 @@ const COLLECTION = 'blog-posts';
 export async function getBlogPosts(page = 1, limit = 10): Promise<PaginatedBlogPosts> {
   try {
     const db = getAdminDb();
-    const collection = db.collection(COLLECTION);
+    const collectionRef = db.collection(COLLECTION);
 
-    // Get total count of published posts
-    const countSnapshot = await collection
+    // Fetch all published posts and sort in memory (avoids composite index requirement)
+    // This is fine for small blog post counts (<100)
+    const snapshot = await collectionRef
       .where('status', '==', 'published')
-      .count()
-      .get();
-    const total = countSnapshot.data().count;
-
-    // Get paginated posts
-    const offset = (page - 1) * limit;
-    const snapshot = await collection
-      .where('status', '==', 'published')
-      .orderBy('publishedAt', 'desc')
-      .offset(offset)
-      .limit(limit)
       .get();
 
-    const posts: BlogPostMeta[] = snapshot.docs.map((doc) => {
-      const data = doc.data();
+    if (snapshot.empty) {
+      console.log('No published blog posts found in Firestore');
       return {
-        id: doc.id,
-        slug: data.slug,
-        title: data.title,
-        excerpt: data.excerpt,
-        publishedAt: data.publishedAt,
-        tags: data.tags || [],
-        category: data.category,
-        featuredStats: data.featuredStats || [],
+        posts: [],
+        total: 0,
+        page,
+        pageSize: limit,
+        hasMore: false,
       };
-    });
+    }
+
+    // Map and sort by publishedAt descending
+    const allPosts: BlogPostMeta[] = snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          slug: data.slug,
+          title: data.title,
+          excerpt: data.excerpt,
+          publishedAt: data.publishedAt,
+          tags: data.tags || [],
+          category: data.category,
+          featuredStats: data.featuredStats || [],
+        };
+      })
+      .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+
+    const total = allPosts.length;
+    const offset = (page - 1) * limit;
+    const posts = allPosts.slice(offset, offset + limit);
 
     return {
       posts,
