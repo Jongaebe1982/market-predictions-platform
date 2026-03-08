@@ -27,6 +27,10 @@ export async function GET() {
         loc: `${BASE_URL}/sitemap-companies.xml`,
         lastmod: today, // Companies list can change when new tickers are discovered
       },
+      {
+        loc: `${BASE_URL}/sitemap-blog.xml`,
+        lastmod: today, // Blog posts updated with fresh data
+      },
     ];
 
     // Add market sitemaps (sharded if needed)

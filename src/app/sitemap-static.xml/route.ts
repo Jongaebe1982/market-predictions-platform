@@ -15,6 +15,7 @@ export async function GET() {
     { loc: normalizeUrl('/markets') },
     { loc: normalizeUrl('/companies') },
     { loc: normalizeUrl('/analytics') },
+    { loc: normalizeUrl('/blog') },
 
     // Source pages
     { loc: normalizeUrl('/sources/polymarket') },

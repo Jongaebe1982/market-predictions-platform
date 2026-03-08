@@ -215,3 +215,58 @@ export function ItemListJsonLd({ name, description, items }: ItemListJsonLdProps
     />
   );
 }
+
+// Article JSON-LD for blog posts
+interface ArticleJsonLdProps {
+  title: string;
+  description: string;
+  slug: string;
+  publishedAt: string;
+  updatedAt: string;
+  tags?: string[];
+}
+
+export function ArticleJsonLd({
+  title,
+  description,
+  slug,
+  publishedAt,
+  updatedAt,
+  tags = [],
+}: ArticleJsonLdProps) {
+  const safeDescription = ensureMinDescriptionLength(
+    description,
+    'Discover insights about prediction market accuracy and performance analysis.'
+  );
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: title,
+    description: safeDescription,
+    url: `${BASE_URL}/blog/${slug}`,
+    datePublished: publishedAt,
+    dateModified: updatedAt,
+    author: {
+      '@type': 'Organization',
+      name: 'Market Predictions',
+      url: BASE_URL,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Market Predictions',
+      url: BASE_URL,
+    },
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': `${BASE_URL}/blog/${slug}`,
+    },
+    ...(tags.length > 0 && { keywords: tags.join(', ') }),
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  );
+}
