@@ -1,13 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import type { IncludedMarket } from '@/lib/types';
 import { HORIZONS } from '@/lib/accuracy-utils';
-
-interface IncludedMarketsSectionProps {
-  markets: IncludedMarket[];
-}
 
 function formatVolume(vol: number): string {
   if (vol >= 1_000_000) return `$${(vol / 1_000_000).toFixed(1)}M`;
@@ -17,9 +13,44 @@ function formatVolume(vol: number): string {
 
 type FilterStatus = 'all' | 'resolved' | 'active';
 
-export function IncludedMarketsSection({ markets }: IncludedMarketsSectionProps) {
+export function IncludedMarketsSection() {
+  const [markets, setMarkets] = useState<IncludedMarket[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
+
+  useEffect(() => {
+    async function fetchMarkets() {
+      try {
+        const res = await fetch('/api/accuracy/markets');
+        if (res.ok) {
+          const data = await res.json();
+          setMarkets(data.markets || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch markets:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchMarkets();
+  }, []);
+
+  if (loading) {
+    return (
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Included Markets</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-3 text-gray-500">Loading markets...</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (markets.length === 0) return null;
 

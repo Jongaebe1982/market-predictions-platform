@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { computeRealAccuracyMetrics } from '@/lib/accuracy-compute';
+import { fetchLiteAccuracyMetrics } from '@/lib/accuracy-compute';
 import { formatPercentage } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { AccuracyCharts } from './AccuracyCharts';
@@ -17,8 +17,8 @@ export const metadata: Metadata = {
 export const revalidate = 3600;
 
 export default async function AccuracyPage() {
-  // Compute real metrics from live API + Firestore (cached for 1 hour)
-  const metrics = await computeRealAccuracyMetrics();
+  // Fetch lightweight metrics (excludes large includedMarkets array)
+  const metrics = await fetchLiteAccuracyMetrics();
 
   // Find which horizon is actually being used for the overall score
   const preferenceOrder = ['14d', '10d', '7d', '2d', '1d', '12h'] as const;
@@ -46,7 +46,7 @@ export default async function AccuracyPage() {
     },
     {
       label: 'Markets Tracked',
-      value: metrics.includedMarkets.length,
+      value: metrics.totalMarketsTracked,
       description: 'active + resolved total',
     },
   ];
@@ -96,7 +96,7 @@ export default async function AccuracyPage() {
                 <p className="text-xs text-gray-500">Resolved Markets Analyzed</p>
               </div>
               <div className="text-center sm:text-left">
-                <p className="text-2xl font-bold text-blue-600">{metrics.includedMarkets.length}</p>
+                <p className="text-2xl font-bold text-blue-600">{metrics.totalMarketsTracked}</p>
                 <p className="text-xs text-gray-500">Total Markets Tracked</p>
               </div>
               <div className="text-center sm:text-left">
@@ -263,7 +263,7 @@ export default async function AccuracyPage() {
           <CardContent>
             <p className="text-sm text-gray-500">Markets Tracked</p>
             <p className="text-3xl font-bold text-blue-600">
-              {metrics.includedMarkets.length}
+              {metrics.totalMarketsTracked}
             </p>
             <p className="text-xs text-gray-400 mt-1">Active + resolved total</p>
           </CardContent>
@@ -541,7 +541,7 @@ export default async function AccuracyPage() {
 
       {/* Transparency: Included Markets */}
       <section id="markets" className="scroll-mt-20">
-        <IncludedMarketsSection markets={metrics.includedMarkets} />
+        <IncludedMarketsSection />
       </section>
 
       {/* Links to related resources */}

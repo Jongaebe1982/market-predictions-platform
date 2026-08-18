@@ -1,7 +1,7 @@
 import { fetchResolvedStockMarkets, fetchPolymarketStockMarkets } from './polymarket';
 import { fetchKalshiStockMarkets, fetchResolvedKalshiMarkets } from './kalshi';
 import { HORIZONS, calculateBrierScore, computeAccuracyMetrics } from './accuracy-utils';
-import type { AccuracyMetrics, MarketResolution, IncludedMarket, HorizonKey, HorizonProbability, PricePoint } from './types';
+import type { AccuracyMetrics, AccuracyMetricsLite, MarketResolution, IncludedMarket, HorizonKey, HorizonProbability, PricePoint } from './types';
 import { cache } from './cache';
 import { getAdminDb } from './firebase-admin';
 
@@ -45,6 +45,56 @@ export async function fetchCachedAccuracyMetrics(): Promise<AccuracyMetrics> {
   } catch (error) {
     console.error('Error fetching cached accuracy metrics:', error);
     return EMPTY_METRICS;
+  }
+}
+
+const EMPTY_METRICS_LITE: AccuracyMetricsLite = {
+  overall: { totalResolved: 0, averageBrierScore: 0, hitRate: 0, calibrationData: [] },
+  byHorizon: [],
+  bySector: [],
+  byCompany: [],
+  byVolume: [],
+  bySource: [],
+  totalMarketsTracked: 0,
+  lastUpdated: new Date().toISOString(),
+};
+
+/**
+ * Fetch lightweight accuracy metrics (without includedMarkets array).
+ * Use this for page rendering to avoid serializing the large markets array.
+ */
+export async function fetchLiteAccuracyMetrics(): Promise<AccuracyMetricsLite> {
+  const cacheKey = 'lite-accuracy-metrics';
+  const cached = cache.get<AccuracyMetricsLite>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const db = getAdminDb();
+    const doc = await db.collection('accuracy').doc('current').get();
+
+    if (!doc.exists) {
+      return EMPTY_METRICS_LITE;
+    }
+
+    const data = doc.data() as AccuracyMetrics;
+
+    // Extract everything except includedMarkets, add the count instead
+    const lite: AccuracyMetricsLite = {
+      overall: data.overall,
+      byHorizon: data.byHorizon,
+      bySector: data.bySector,
+      byCompany: data.byCompany,
+      byVolume: data.byVolume,
+      bySource: data.bySource,
+      totalMarketsTracked: data.includedMarkets?.length || 0,
+      lastUpdated: data.lastUpdated,
+    };
+
+    cache.set(cacheKey, lite, 5 * 60 * 1000);
+    return lite;
+  } catch (error) {
+    console.error('Error fetching lite accuracy metrics:', error);
+    return EMPTY_METRICS_LITE;
   }
 }
 

@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { ChartSkeleton } from '@/components/ui/Skeleton';
-import type { AccuracyMetrics } from '@/lib/types';
+import type { AccuracyMetrics, AccuracyMetricsLite } from '@/lib/types';
 
 const CalibrationPlot = dynamic(
   () => import('@/components/charts/CalibrationPlot').then((mod) => ({ default: mod.CalibrationPlot })),
@@ -21,7 +21,7 @@ const HorizonLineChart = dynamic(
 );
 
 interface AccuracyChartsProps {
-  metrics: AccuracyMetrics;
+  metrics: AccuracyMetrics | AccuracyMetricsLite;
 }
 
 export function AccuracyCharts({ metrics }: AccuracyChartsProps) {

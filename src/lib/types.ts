@@ -92,6 +92,11 @@ export interface AccuracyMetrics {
   lastUpdated: string;
 }
 
+/** Lightweight version of AccuracyMetrics without the large includedMarkets array */
+export type AccuracyMetricsLite = Omit<AccuracyMetrics, 'includedMarkets'> & {
+  totalMarketsTracked: number;
+};
+
 export interface VolumeAccuracy {
   bucket: string;
   minVolume: number;
